@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package ug.hix.hixnet2.models;
+
+message DeviceNode{
+    string instanceName = 1;
+    string meshID  = 2;
+    string serviceAddress  = 3;
+    string multicastAddress = 4;
+    string macAddress  = 5;
+    repeated DeviceNode peers = 6;
+    DeviceNode relayDevice =7;
+    repeated Service services = 8;
+    int32 Hops = 9;
+    map<string,string> txtRecord = 10;
+    bool  hasMaster = 11;
+    bool  isMaster  = 12;
+    bool  hasInternetWifi = 13;
+    string deviceName = 14;
+
+}
+
+message Service{
+    string name = 1;
+    int32 port = 2;
+}
+
+message ACK{
+    //this a one hop ack for the packets sent
+    //ACKID is same as packetID of the original packet
+
+    string ackID = 1;
+    repeated int32 expectedOffset = 2;
+
+}
+
+message Packet{
+    string packetID  = 1;
+    string toMeshID = 2;
+    string fromMeshID = 3;
+    string originalFromMeshID = 4;
+    int32  offset = 5;
+    int32  timeToLive = 6;
+    bytes  payload  = 7;
+    int32  expected = 8;
+    string messageType = 9;
+}"
