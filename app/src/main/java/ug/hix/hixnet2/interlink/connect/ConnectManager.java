@@ -59,6 +59,7 @@ public class ConnectManager {
             this.wifiManager.disconnect();
         }
 
+
         private class WiFiConnectionReceiver extends BroadcastReceiver {
 
             @Override

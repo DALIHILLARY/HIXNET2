@@ -25,6 +25,7 @@ android {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
     }
+    kotlinOptions { jvmTarget = "1.8" }
 }
 
 dependencies {
@@ -39,6 +40,7 @@ dependencies {
     implementation 'com.arasthel:asyncjob-library:1.0.3'
     implementation 'com.thanosfisherman.elvis:elvis:2.0'
     implementation 'com.thanosfisherman.wifiutils:wifiutils:1.6.0'
+    implementation 'com.github.Knexis:Hotspot-Android:1.2.0'
     api 'com.squareup.wire:wire-runtime:3.2.1'
 
 }
