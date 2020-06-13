@@ -45,7 +45,7 @@ class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: W
 //                            Log.v(TAG, "Not connected to another device.")
 //                            if (salutInstance.thisDevice.isRegistered) {
 //                                if (salutInstance.unexpectedDisconnect != null) {
-////                        salutInstance.unregisterClient(salutInstance.unexpectedDisconnect, null, false);
+//                                     salutInstance.unregisterClient(salutInstance.unexpectedDisconnect, null, false);
 //                                }
 //                            }
                         }

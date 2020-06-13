@@ -3,6 +3,7 @@ package ug.hix.hixnet2.licklider
 import android.util.Log
 import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.cyphers.Generator
+import ug.hix.hixnet2.licklider.buffers.LickBuffers
 import ug.hix.hixnet2.models.ACK
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.models.Packet
@@ -13,36 +14,35 @@ import java.net.MulticastSocket
 import java.util.*
 import kotlin.concurrent.thread
 
-class Licklider(message : Any) {
+open class Licklider : LickBuffers() {
 
     val TAG = javaClass.simpleName
-    val packet = Packet()
     val cypher = Generator()
-    val device = DeviceNode()
-    private var message  = message
-    private var PORT : Int? = null
+    private lateinit var message : Any
     private lateinit var buffer : ByteArray
     private lateinit var range : ByteArray
 
-    private fun filter() {
+    private fun loadData(message : Any){
+        this.message = message
+
         packet.packetID = cypher.genMID()
         packet.fromMeshID = cypher.getPID()
-        when (message) {
+        when (this.message) {
             is String -> {
                 packet.messageType = "COMMAND"
-                PORT = 45345
+                packet.port = 45345
                 buffer  = (message as String).toByteArray()
 
             }
             is ACK -> {
                 packet.messageType = "ACK"
-                PORT = 33456
+                packet.port = 33456
                 buffer = (message as ACK).encode()
 
             }
             is DeviceNode -> {
                 packet.messageType = "COMMAND_ACK"
-                PORT  = 45345
+                packet.port = 45345
                 buffer  = (message as DeviceNode).encode()
             }
             is Byte  -> {
@@ -68,8 +68,11 @@ class Licklider(message : Any) {
 
              packet.payload = range.toByteString()
 
+             forward()
+
              Log.d(TAG,"chucked msg $i  :  ${range.toString()}")
              i++
+
          }
 
         // Last chunk from the calculation
@@ -84,33 +87,64 @@ class Licklider(message : Any) {
          range = buffer.copyOfRange((blockCount - 1) * blockSize, end)
          packet.payload = range.toByteString()
 
-         Log.d(TAG, "Chunk $blockCount :  ${range.toString()}")
+        forward()
+
+        Log.d(TAG, "Chunk $blockCount :  ${range.toString()}")
 
     }
 
-    fun send(packet : ByteArray, ipAddress : String, port : Int){
-        val socket =  DatagramSocket()
-        val receiver = InetAddress.getByName(ipAddress)
-        val payload = DatagramPacket(packet,packet.size,receiver,port)
-        socket.send(payload)
-        socket.close()
-        TODO("GET REAL IP ADDRESS FROM PID")
+
+
+    protected fun packetHandler(buffer : ByteArray){
+        packet = Packet.ADAPTER.decode(buffer)
+
+        if(packet.toMeshID == Generator().getPID()){
+
+        }else{
+            forward()
+        }
 
     }
-    private fun receiver(){
-        thread{
-            val rBuffer = ByteArray(2048)
-            val socket = MulticastSocket(33456)
-            val group = InetAddress.getByName("230.0.0.1")
-            socket.joinGroup(group)
+    companion object : Licklider() {
+        fun send(packet : ByteArray, ipAddress : String?, port : Int){
+            val socket =  DatagramSocket()
+            val receiver = InetAddress.getByName(ipAddress)
+            val payload = DatagramPacket(packet,packet.size,receiver,port)
+            socket.send(payload)
+            socket.close()
 
-            //always listen for incoming data
-            while(true){
-                val packet = DatagramPacket(rBuffer, rBuffer.size)
-                socket.receive(packet)
+        }
 
+        private fun receiver(){
+            thread{
+                val rBuffer = ByteArray(2048)
+                val socket = MulticastSocket(33456)
+                val group = InetAddress.getByName("230.0.0.1")
+                socket.joinGroup(group)
+
+                //always listen for incoming data
+                while(true){
+                    val packet = DatagramPacket(rBuffer, rBuffer.size)
+                    socket.receive(packet)
+                    
+                    packetHandler(packet.data)
+                }
+            }
+        }
+
+        fun enqueuePacket() {
+            queueBuffer.add(packet)
+        }
+
+        fun dequePacket(){
+            if(!queueBuffer.isNullOrEmpty()){
+                queueBuffer.forEach {
+                    forward()
+                    queueBuffer.remove(it)
+                }
             }
         }
     }
+
 
 }

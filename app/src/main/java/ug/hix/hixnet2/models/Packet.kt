@@ -46,24 +46,29 @@ class Packet(
     tag = 5,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
-  var offset: Int = 0,
+  var port: Int = 0,
   @field:WireField(
     tag = 6,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
-  val timeToLive: Int = 0,
+  var offset: Int = 0,
   @field:WireField(
     tag = 7,
+    adapter = "com.squareup.wire.ProtoAdapter#INT32"
+  )
+  val timeToLive: Int = 0,
+  @field:WireField(
+    tag = 8,
     adapter = "com.squareup.wire.ProtoAdapter#BYTES"
   )
   var payload: ByteString = ByteString.EMPTY,
   @field:WireField(
-    tag = 8,
+    tag = 9,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
   var expected: Int = 0,
   @field:WireField(
-    tag = 9,
+    tag = 10,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
   var messageType: String = "",
@@ -83,6 +88,7 @@ class Packet(
         && toMeshID == other.toMeshID
         && fromMeshID == other.fromMeshID
         && originalFromMeshID == other.originalFromMeshID
+        && port == other.port
         && offset == other.offset
         && timeToLive == other.timeToLive
         && payload == other.payload
@@ -98,6 +104,7 @@ class Packet(
       result = result * 37 + toMeshID.hashCode()
       result = result * 37 + fromMeshID.hashCode()
       result = result * 37 + originalFromMeshID.hashCode()
+      result = result * 37 + port.hashCode()
       result = result * 37 + offset.hashCode()
       result = result * 37 + timeToLive.hashCode()
       result = result * 37 + payload.hashCode()
@@ -114,6 +121,7 @@ class Packet(
     result += """toMeshID=${sanitize(toMeshID)}"""
     result += """fromMeshID=${sanitize(fromMeshID)}"""
     result += """originalFromMeshID=${sanitize(originalFromMeshID)}"""
+    result += """port=$port"""
     result += """offset=$offset"""
     result += """timeToLive=$timeToLive"""
     result += """payload=$payload"""
@@ -127,13 +135,14 @@ class Packet(
     toMeshID: String = this.toMeshID,
     fromMeshID: String = this.fromMeshID,
     originalFromMeshID: String = this.originalFromMeshID,
+    port: Int = this.port,
     offset: Int = this.offset,
     timeToLive: Int = this.timeToLive,
     payload: ByteString = this.payload,
     expected: Int = this.expected,
     messageType: String = this.messageType,
     unknownFields: ByteString = this.unknownFields
-  ): Packet = Packet(packetID, toMeshID, fromMeshID, originalFromMeshID, offset, timeToLive,
+  ): Packet = Packet(packetID, toMeshID, fromMeshID, originalFromMeshID, port, offset, timeToLive,
       payload, expected, messageType, unknownFields)
 
   companion object {
@@ -148,11 +157,12 @@ class Packet(
         ProtoAdapter.STRING.encodedSizeWithTag(2, value.toMeshID) +
         ProtoAdapter.STRING.encodedSizeWithTag(3, value.fromMeshID) +
         ProtoAdapter.STRING.encodedSizeWithTag(4, value.originalFromMeshID) +
-        ProtoAdapter.INT32.encodedSizeWithTag(5, value.offset) +
-        ProtoAdapter.INT32.encodedSizeWithTag(6, value.timeToLive) +
-        ProtoAdapter.BYTES.encodedSizeWithTag(7, value.payload) +
-        ProtoAdapter.INT32.encodedSizeWithTag(8, value.expected) +
-        ProtoAdapter.STRING.encodedSizeWithTag(9, value.messageType) +
+        ProtoAdapter.INT32.encodedSizeWithTag(5, value.port) +
+        ProtoAdapter.INT32.encodedSizeWithTag(6, value.offset) +
+        ProtoAdapter.INT32.encodedSizeWithTag(7, value.timeToLive) +
+        ProtoAdapter.BYTES.encodedSizeWithTag(8, value.payload) +
+        ProtoAdapter.INT32.encodedSizeWithTag(9, value.expected) +
+        ProtoAdapter.STRING.encodedSizeWithTag(10, value.messageType) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: Packet) {
@@ -161,12 +171,14 @@ class Packet(
         if (value.fromMeshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.fromMeshID)
         if (value.originalFromMeshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 4,
             value.originalFromMeshID)
-        if (value.offset != 0) ProtoAdapter.INT32.encodeWithTag(writer, 5, value.offset)
-        if (value.timeToLive != 0) ProtoAdapter.INT32.encodeWithTag(writer, 6, value.timeToLive)
-        if (value.payload != ByteString.EMPTY) ProtoAdapter.BYTES.encodeWithTag(writer, 7,
+        if (value.port != 0) ProtoAdapter.INT32.encodeWithTag(writer, 5, value.port)
+        if (value.offset != 0) ProtoAdapter.INT32.encodeWithTag(writer, 6, value.offset)
+        if (value.timeToLive != 0) ProtoAdapter.INT32.encodeWithTag(writer, 7, value.timeToLive)
+        if (value.payload != ByteString.EMPTY) ProtoAdapter.BYTES.encodeWithTag(writer, 8,
             value.payload)
-        if (value.expected != 0) ProtoAdapter.INT32.encodeWithTag(writer, 8, value.expected)
-        if (value.messageType != "") ProtoAdapter.STRING.encodeWithTag(writer, 9, value.messageType)
+        if (value.expected != 0) ProtoAdapter.INT32.encodeWithTag(writer, 9, value.expected)
+        if (value.messageType != "") ProtoAdapter.STRING.encodeWithTag(writer, 10,
+            value.messageType)
         writer.writeBytes(value.unknownFields)
       }
 
@@ -175,6 +187,7 @@ class Packet(
         var toMeshID: String = ""
         var fromMeshID: String = ""
         var originalFromMeshID: String = ""
+        var port: Int = 0
         var offset: Int = 0
         var timeToLive: Int = 0
         var payload: ByteString = ByteString.EMPTY
@@ -186,11 +199,12 @@ class Packet(
             2 -> toMeshID = ProtoAdapter.STRING.decode(reader)
             3 -> fromMeshID = ProtoAdapter.STRING.decode(reader)
             4 -> originalFromMeshID = ProtoAdapter.STRING.decode(reader)
-            5 -> offset = ProtoAdapter.INT32.decode(reader)
-            6 -> timeToLive = ProtoAdapter.INT32.decode(reader)
-            7 -> payload = ProtoAdapter.BYTES.decode(reader)
-            8 -> expected = ProtoAdapter.INT32.decode(reader)
-            9 -> messageType = ProtoAdapter.STRING.decode(reader)
+            5 -> port = ProtoAdapter.INT32.decode(reader)
+            6 -> offset = ProtoAdapter.INT32.decode(reader)
+            7 -> timeToLive = ProtoAdapter.INT32.decode(reader)
+            8 -> payload = ProtoAdapter.BYTES.decode(reader)
+            9 -> expected = ProtoAdapter.INT32.decode(reader)
+            10 -> messageType = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
@@ -199,6 +213,7 @@ class Packet(
           toMeshID = toMeshID,
           fromMeshID = fromMeshID,
           originalFromMeshID = originalFromMeshID,
+          port = port,
           offset = offset,
           timeToLive = timeToLive,
           payload = payload,
