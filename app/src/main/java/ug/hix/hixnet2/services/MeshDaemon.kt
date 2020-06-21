@@ -7,36 +7,54 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.os.IBinder
 import ug.hix.hixnet2.meshlink.MeshServiceManager
 import ug.hix.hixnet2.meshlink.NetworkCardManager
-import ug.hix.hixnet2.models.DeviceNode
-import java.util.*
+import kotlin.concurrent.thread
 
-class MeshDaemon(context : Context): Service() {
-    var deviceInstance = DeviceNode()
-    val mContext : Context = context
-    val TAG = javaClass.simpleName
+class MeshDaemon : Service() {
+    private lateinit var cardManager : NetworkCardManager
+    private lateinit var manager : WifiP2pManager
+    private lateinit var channel : WifiP2pManager.Channel
+    private lateinit var serviceHandler : MeshServiceManager
 
-    val cardManager = NetworkCardManager(mContext)
-    val manager = mContext.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
-    val channel =  manager.initialize(mContext,mContext.mainLooper, null)
-    var serviceHandler = MeshServiceManager(this,manager,channel)
 
+    override fun onCreate() {
+        super.onCreate()
+
+        //var deviceInstance = DeviceNode()
+        val mContext : Context = this
+        val TAG = javaClass.simpleName
+
+        cardManager = NetworkCardManager(this)
+        manager = mContext.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
+        channel =  manager.initialize(this,this.mainLooper, null)
+        serviceHandler = MeshServiceManager(this,manager,channel)
+
+
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        cardManager.isWiFiEnabled()
-        Timer().schedule(object : TimerTask(){
-            override fun run() {
-                serviceHandler.startServiceDiscover()
-            }
-        },3000)
 
+        //execute on separate thread heavy tasks ahead
+        thread{
+            cardManager.isWiFiEnabled()
+
+        }
         return START_STICKY
+
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        cardManager.disableWiFi()
+        cardManager.unregisterCard()
+        serviceHandler.unregisterP2p()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        TODO("Not yet implemented")
+
+        return null
+    }
+
+    fun startComponents(){
+        //to be written
     }
 }

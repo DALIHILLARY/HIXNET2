@@ -11,13 +11,10 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.MulticastSocket
-import java.util.*
-import kotlin.concurrent.thread
 
 open class Licklider : LickBuffers() {
 
     val TAG = javaClass.simpleName
-    val cypher = Generator()
     private lateinit var message : Any
     private lateinit var buffer : ByteArray
     private lateinit var range : ByteArray
@@ -25,8 +22,8 @@ open class Licklider : LickBuffers() {
     private fun loadData(message : Any){
         this.message = message
 
-        packet.packetID = cypher.genMID()
-        packet.fromMeshID = cypher.getPID()
+        packet.packetID = Generator.genMID()
+        packet.fromMeshID = Generator.getPID()
         when (this.message) {
             is String -> {
                 packet.messageType = "COMMAND"
@@ -47,8 +44,12 @@ open class Licklider : LickBuffers() {
             }
             is Byte  -> {
                 packet.messageType = "FILE"
-                //reserved for file transfer
-                TODO("reserved for file transfer")
+
+                /**
+                 * reserved for file transfer
+                 */
+
+
             }
         }
     }
@@ -98,10 +99,13 @@ open class Licklider : LickBuffers() {
     protected fun packetHandler(buffer : ByteArray){
         packet = Packet.ADAPTER.decode(buffer)
 
-        if(packet.toMeshID == Generator().getPID()){
-
-        }else{
-            forward()
+        //we don't handle packet from our own node incase of broadcast conflict
+        if(packet.fromMeshID != Generator.getPID()){
+            if(packet.toMeshID == Generator.getPID()){
+                    TODO("FILL MESAGE IS MINE")
+            }else{
+                forward()
+            }
         }
 
     }
@@ -115,21 +119,21 @@ open class Licklider : LickBuffers() {
 
         }
 
-        private fun receiver(){
-            thread{
-                val rBuffer = ByteArray(2048)
-                val socket = MulticastSocket(33456)
-                val group = InetAddress.getByName("230.0.0.1")
-                socket.joinGroup(group)
+        fun receiver(){
 
-                //always listen for incoming data
-                while(true){
-                    val packet = DatagramPacket(rBuffer, rBuffer.size)
-                    socket.receive(packet)
-                    
-                    packetHandler(packet.data)
-                }
+            val rBuffer = ByteArray(2048)
+            val socket = MulticastSocket(33456)
+            val group = InetAddress.getByName("230.0.0.1")
+            socket.joinGroup(group)
+
+            //always listen for incoming data
+            while(true){
+                val packet = DatagramPacket(rBuffer, rBuffer.size)
+                socket.receive(packet)
+
+                packetHandler(packet.data)
             }
+
         }
 
         fun enqueuePacket() {

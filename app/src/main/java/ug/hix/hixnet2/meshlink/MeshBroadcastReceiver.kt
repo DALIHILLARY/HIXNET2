@@ -7,8 +7,6 @@ import android.net.NetworkInfo
 import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pManager
 import android.util.Log
-import ug.hix.hixnet2.models.DeviceNode
-import java.util.*
 
 class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: WifiP2pManager.Channel) : BroadcastReceiver() {
     val TAG = javaClass.simpleName
@@ -20,8 +18,8 @@ class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: W
     override fun onReceive(context: Context?, intent: Intent) {
         when(intent.action) {
             WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
-                // Determine if Wifi P2P mode is enabled or not, alert
-                // the Activity.
+                // Determine if Wifi P2P mode is enabled or not
+
                 val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
                 if( state  != WifiP2pManager.WIFI_P2P_STATE_ENABLED){
                     Log.v(TAG,"P2P is disabled")
@@ -30,7 +28,7 @@ class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: W
 
             WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
 
-                val networkInfo = intent!!.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO) as NetworkInfo
+                val networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO) as NetworkInfo
 
                 if (networkInfo.isConnected){
                     when(networkInfo.typeName){
@@ -40,6 +38,7 @@ class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: W
                             manager.requestGroupInfo(channel,instance as WifiP2pManager.GroupInfoListener)
                         }
                         "WIFI" -> {
+                            Log.d(TAG,"COnnected to another peer")
 //                            instance.hasMaster = false
 //                            instance.hasInternetWifi = true
 //                            Log.v(TAG, "Not connected to another device.")

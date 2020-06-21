@@ -12,11 +12,10 @@ message DeviceNode{
     DeviceNode relayDevice =7;
     repeated Service services = 8;
     int32 Hops = 9;
-    map<string,string> txtRecord = 10;
-    bool  hasMaster = 11;
-    bool  isMaster  = 12;
-    bool  hasInternetWifi = 13;
-    string deviceName = 14;
+    bool  hasMaster = 10;
+    bool  isMaster  = 11;
+    bool  hasInternetWifi = 12;
+    string deviceName = 13;
 
 }
 
@@ -25,24 +24,24 @@ message Service{
     int32 port = 2;
 }
 
-message ACK{
-    //this a one hop ack for the packets sent
-    //ACKID is same as packetID of the original packet
-
-    string ackID = 1;
-    repeated int32 expectedOffset = 2;
-
-}
-
-message Packet{
-    string packetID  = 1;
-    string toMeshID = 2;
-    string fromMeshID = 3;
-    string originalFromMeshID = 4;
-    int32 port   = 5;
-    int32  offset = 6;
-    int32  timeToLive = 7;
-    bytes  payload  = 8;
-    int32  expected = 9;
-    string messageType = 10;
-}
+//message ACK{
+//    //this a one hop ack for the packets sent
+//    //ACKID is same as packetID of the original packet
+//
+//    string ackID = 1;
+//    repeated int32 expectedOffset = 2;
+//
+//}
+//
+//message Packet{
+//    string packetID  = 1;
+//    string toMeshID = 2;
+//    string fromMeshID = 3;
+//    string originalFromMeshID = 4;
+//    int32 port   = 5;
+//    int32  offset = 6;
+//    int32  timeToLive = 7;
+//    bytes  payload  = 8;
+//    int32  expected = 9;
+//    string messageType = 10;
+//}

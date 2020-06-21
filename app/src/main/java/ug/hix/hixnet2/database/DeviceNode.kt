@@ -2,6 +2,8 @@ package ug.hix.hixnet2.database
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.TypeConverters
+import java.io.Serializable
 
 @Entity
 data class DeviceNode (
@@ -13,11 +15,12 @@ data class DeviceNode (
     val publicKey   : String,
     val privateKey : String,
     val relayDevice   : Boolean,
+    @TypeConverters(ServiceConverter::class)
     val services     : List<Services>,
     val hops      : Int,
-    val hasMaster  : Boolean,
-    val isMaster   : Boolean,
+    val slave  : Boolean,
+    val master   : Boolean,
     val hasInternetWifi : Boolean,
     val isMe  : Boolean
 
-)
+) : Serializable

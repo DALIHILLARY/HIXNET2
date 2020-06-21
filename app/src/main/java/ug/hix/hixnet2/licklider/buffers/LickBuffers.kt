@@ -1,20 +1,15 @@
 package ug.hix.hixnet2.licklider.buffers
 
-import okio.ByteString
-import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.models.ACK
-import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.models.Packet
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-
 
 
 open class LickBuffers {
 
-    var recvBuffer = ByteArray(2048)
+    lateinit var primaryBuffers : ByteArray
+    lateinit var secondaryBuffer : ByteArray
+    lateinit var recvBuffer : ByteArray
     lateinit var packet : Packet
     lateinit var device : DeviceNode
     lateinit var ack  : ACK
@@ -23,20 +18,19 @@ open class LickBuffers {
     lateinit var myMessagesQueue : MutableList<Packet>
 
 
-    fun recv(){
-
-        when(packet.messageType){
+    private fun decodeData(array : ByteArray , type : String){
+        when(type){
             "COMMAND"  ->{
                 //this just a bunch of string commands
                 //to be see soon
-                TODO("ADD COMMANDS")
+
 
             }
             "ACK"   -> {
-                ack = ACK.ADAPTER.decode(packet.payload)
+                ack = ACK.ADAPTER.decode(array)
             }
             "COMMAND_ACK" -> {
-                device = DeviceNode.ADAPTER.decode(packet.payload)
+                device = DeviceNode.ADAPTER.decode(array)
             }
             "FILE"  -> {
                 //to be done at a later tyme
@@ -101,12 +95,17 @@ open class LickBuffers {
 
                 fullyReceived.sortedBy { it.offset }.forEach { info + it.payload.toByteArray() }
 
+                decodeData(info,packet.messageType)
+
             }
         }else{
             //pass the message up without enqueue
             info = packet.payload.toByteArray()
 
+            decodeData(info,packet.messageType)
+
         }
     }
+
 
 }

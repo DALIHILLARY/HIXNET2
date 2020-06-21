@@ -13,10 +13,10 @@ interface DeviceNodeDao {
     @Query("SELECT * FROM devicenode")
     fun getAllDevices() : List<DeviceNode>
 
-    @Query("SELECT * FROM devicenode WHERE isMaster = 1")
+    @Query("SELECT * FROM devicenode WHERE master = 1")
     fun getMasterDevices() : List<DeviceNode>
 
-    @Query("SELECT * FROM devicenode WHERE isMaster = 0")
+    @Query("SELECT * FROM devicenode WHERE master = 0")
     fun getNoMasterDevices() : List<DeviceNode>
 
     @Query("SELECT instanceName FROM devicenode ")
