@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:id="@+id/menuHome"
+          android:icon="@drawable/ic_home"
+          android:title="@string/home"
+          app:showAsAction="always"/>
+    <item android:id="@+id/menuFiles"
+          android:icon="@drawable/ic_files"
+          android:title="@string/files"
+          app:showAsAction="always"/>
+    <item android:id="@+id/menuCloud"
+          android:icon="@drawable/ic_cloud"
+          android:title="@string/cloud"
+          app:showAsAction="always"/>
+    <item android:id="@+id/menuMessage"
+          android:icon="@drawable/ic_message"
+          android:title="@string/chat"
+          app:showAsAction="always"/>
+
+</menu>

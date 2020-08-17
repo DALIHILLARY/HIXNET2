@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class WifiConfig(
     @PrimaryKey val netId : Int,
     val ssid : String,
+    val mac  : String,
     val passPhrase : String
 )

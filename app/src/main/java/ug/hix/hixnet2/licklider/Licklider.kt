@@ -1,23 +1,43 @@
 package ug.hix.hixnet2.licklider
 
+import android.content.Context
+import android.net.wifi.WifiManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.licklider.buffers.LickBuffers
 import ug.hix.hixnet2.models.ACK
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.models.Packet
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.MulticastSocket
+import java.io.IOException
+import java.net.*
 
-open class Licklider : LickBuffers() {
+open class Licklider(private val mContext : Context) : LickBuffers() {
 
-    val TAG = javaClass.simpleName
+    private val TAG = javaClass.simpleName
+    private val PORT = 33456
+
+    private val rBuffer = ByteArray(2048)
+    private val socket = MulticastSocket(PORT)
+    private val p2p0 = NetworkInterface.getByName("p2p0")
+    private val wlan0 = NetworkInterface.getByName("wlan0")
+
+    //TODO("get mytliaddress from device info")
+    val group = InetAddress.getByName("230.0.0.11")
+
     private lateinit var message : Any
     private lateinit var buffer : ByteArray
     private lateinit var range : ByteArray
+    protected lateinit var packet : Packet
+
+    private val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+    private val multicastLock = mWifiManager.createMulticastLock("multicastLock")
+
+
 
     private fun loadData(message : Any){
         this.message = message
@@ -69,7 +89,7 @@ open class Licklider : LickBuffers() {
 
              packet.payload = range.toByteString()
 
-             forward()
+             forward(packet,::send)
 
              Log.d(TAG,"chucked msg $i  :  ${range.toString()}")
              i++
@@ -88,7 +108,7 @@ open class Licklider : LickBuffers() {
          range = buffer.copyOfRange((blockCount - 1) * blockSize, end)
          packet.payload = range.toByteString()
 
-        forward()
+        forward(packet,::send) //higher order function call
 
         Log.d(TAG, "Chunk $blockCount :  ${range.toString()}")
 
@@ -104,51 +124,92 @@ open class Licklider : LickBuffers() {
             if(packet.toMeshID == Generator.getPID()){
                     TODO("FILL MESAGE IS MINE")
             }else{
-                forward()
+                forward(packet,::send)
             }
         }
 
     }
-    companion object : Licklider() {
-        fun send(packet : ByteArray, ipAddress : String?, port : Int){
-            val socket =  DatagramSocket()
-            val receiver = InetAddress.getByName(ipAddress)
-            val payload = DatagramPacket(packet,packet.size,receiver,port)
+
+
+    @Synchronized fun send(packet : ByteArray?, ipAddress : String?, port : Int?){
+        if(!multicastLock.isHeld){
+            multicastLock.acquire()
+        }
+        val socket =  DatagramSocket()
+        val receiver = InetAddress.getByName(ipAddress)
+        val payload = DatagramPacket(packet,packet!!.size,receiver,port!!)
+
+
+        try{
             socket.send(payload)
             socket.close()
 
+        }catch (e : IOException){
+            Log.e(TAG,"NO NETWORK AVAILABLE")
         }
 
-        fun receiver(){
+    }
 
-            val rBuffer = ByteArray(2048)
-            val socket = MulticastSocket(33456)
-            val group = InetAddress.getByName("230.0.0.1")
-            socket.joinGroup(group)
+    @Synchronized fun receiver(){
+        if(!multicastLock.isHeld){
+            multicastLock.acquire()
+        }
 
-            //always listen for incoming data
-            while(true){
-                val packet = DatagramPacket(rBuffer, rBuffer.size)
-                socket.receive(packet)
+        socket.joinGroup(InetSocketAddress(group,PORT),p2p0)
+        socket.joinGroup(InetSocketAddress(group,PORT),wlan0)
 
-                packetHandler(packet.data)
+        //always listen for incoming data
+        while(true){
+            val packet = DatagramPacket(rBuffer, rBuffer.size)
+            socket.receive(packet)
+
+            val msg = String(
+                packet.data,
+                packet.offset, packet.length
+            )
+            Handler(Looper.getMainLooper()).post {
+
+                Toast.makeText(mContext,msg,Toast.LENGTH_SHORT).show()
             }
 
+           // packetHandler(packet.data)
         }
 
-        fun enqueuePacket() {
-            queueBuffer.add(packet)
-        }
+    }
 
-        fun dequePacket(){
-            if(!queueBuffer.isNullOrEmpty()){
-                queueBuffer.forEach {
-                    forward()
-                    queueBuffer.remove(it)
-                }
+    fun endSocket(){
+        socket.leaveGroup(InetSocketAddress(group,PORT),p2p0)
+        socket.leaveGroup(InetSocketAddress(group,PORT),wlan0)
+        socket.close()
+
+    }
+
+    fun enqueuePacket() {
+        queueBuffer.add(packet)
+    }
+
+    fun dequePacket(){
+        if(!queueBuffer.isNullOrEmpty()){
+            queueBuffer.forEach {
+                forward(packet,::send)
+                queueBuffer.remove(it)
             }
         }
     }
 
+    companion object{
+        var instance : Licklider? = null
 
+        fun getInstance(context : Context) : Licklider{
+            if(instance == null){
+
+                instance = Licklider(context)
+
+            }
+            return instance as Licklider
+        }
+
+    }
 }
+
+

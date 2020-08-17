@@ -2,6 +2,7 @@ package ug.hix.hixnet2.licklider.buffers
 
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.models.ACK
+import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.models.Packet
 
 
@@ -10,7 +11,6 @@ open class LickBuffers {
     lateinit var primaryBuffers : ByteArray
     lateinit var secondaryBuffer : ByteArray
     lateinit var recvBuffer : ByteArray
-    lateinit var packet : Packet
     lateinit var device : DeviceNode
     lateinit var ack  : ACK
     lateinit var queueBuffer : MutableList<Packet>
@@ -40,10 +40,12 @@ open class LickBuffers {
     }
 
 
-    fun forward(){
+    fun forward(packet: Packet, send : (ByteArray,String?,Int) -> Unit){
         val link = getLink(packet.toMeshID)
+        val data = Packet.ADAPTER.encode(packet)
+        val port = packet.port
         if(!link.equals("notAvailable")){
-            Licklider.send(Packet.ADAPTER.encode(packet),link,packet.port)
+            send(data, link, port)
         }else{
             queueBuffer.add(packet)
         }
@@ -90,7 +92,7 @@ open class LickBuffers {
             myMessagesQueue.add(packet)
 
             if(keyCounter[key]  == packet.expected as Int){
-                var (fullyReceived, others) = myMessagesQueue.partition { it.packetID == key }
+                val (fullyReceived, others) = myMessagesQueue.partition { it.packetID == key }
                 myMessagesQueue = others as MutableList<Packet>
 
                 fullyReceived.sortedBy { it.offset }.forEach { info + it.payload.toByteArray() }

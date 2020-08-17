@@ -22,7 +22,6 @@ import kotlin.collections.List
 import kotlin.hashCode
 import kotlin.jvm.JvmField
 import okio.ByteString
-import ug.hix.hixnet2.database.ServicesDatabase
 
 class DeviceNode(
   @field:WireField(

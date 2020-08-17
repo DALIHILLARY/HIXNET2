@@ -23,7 +23,6 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import com.arasthel.asyncjob.AsyncJob;
 import ug.hix.hixnet2.interlink.salut.Callbacks.SalutCallback;
 import ug.hix.hixnet2.interlink.salut.Callbacks.SalutDeviceCallback;
 
@@ -300,63 +299,63 @@ public abstract class Salut implements WifiP2pManager.ConnectionInfoListener {
 //    }
 
     private void sendData(final SalutDevice device, final Object data, @Nullable final SalutCallback onFailure) {
-        BackgroundDataSendJob sendDataToDevice = new BackgroundDataSendJob(device, this, data, onFailure);
-        AsyncJob.doInBackground(sendDataToDevice);
+//        BackgroundDataSendJob sendDataToDevice = new BackgroundDataSendJob(device, this, data, onFailure);
+//        AsyncJob.doInBackground(sendDataToDevice);
     }
 
     private void startHostRegistrationServer() {
         obtainSalutPortLock();
 
-        AsyncJob.doInBackground(new AsyncJob.OnBackgroundJob() {
-            @Override
-            public void doOnBackground() {
-
-                try {
-                    //Create a server socket and wait for client connections. This
-                    //call blocks until a connection is accepted from a client.
-                    registrationIsRunning = true;
-                    while (isRunningAsHost) {
-                        Log.d(TAG, "\nListening for registration data...");
-                        Socket clientSocket = salutServerSocket.accept();
-//                        BackgroundServerRegistrationJob registrationJob = new BackgroundServerRegistrationJob(Salut.this, clientSocket);
+//        AsyncJob.doInBackground(new AsyncJob.OnBackgroundJob() {
+//            @Override
+//            public void doOnBackground() {
 //
-//                        AsyncJob.doInBackground(registrationJob);
-                    }
-                    registrationIsRunning = false;
-                } catch (Exception ex) {
-                    Log.e(TAG, "An error has occurred within the registration server thread.");
-                    ex.printStackTrace();
-                }
-            }
-        });
+//                try {
+//                    //Create a server socket and wait for client connections. This
+//                    //call blocks until a connection is accepted from a client.
+//                    registrationIsRunning = true;
+//                    while (isRunningAsHost) {
+//                        Log.d(TAG, "\nListening for registration data...");
+//                        Socket clientSocket = salutServerSocket.accept();
+////                        BackgroundServerRegistrationJob registrationJob = new BackgroundServerRegistrationJob(Salut.this, clientSocket);
+////
+////                        AsyncJob.doInBackground(registrationJob);
+//                    }
+//                    registrationIsRunning = false;
+//                } catch (Exception ex) {
+//                    Log.e(TAG, "An error has occurred within the registration server thread.");
+//                    ex.printStackTrace();
+//                }
+//            }
+//        });
     }
 
     protected void startListeningForData() {
         obtainServicePortLock();
 
-        AsyncJob.doInBackground(new AsyncJob.OnBackgroundJob() {
-            @Override
-            public void doOnBackground() {
-                try {
-                    //Create a server socket and wait for client connections. This
-                    //call blocks until a connection is accepted from a client.
-
-                    while (isRunningAsHost || thisDevice.isRegistered) {
-
-                        Log.d(TAG, "\nListening for service data...");
-
-                        Socket dataListener = listenerServiceSocket.accept();
-                        BackgroundDataJob dealWithData = new BackgroundDataJob(Salut.this, dataListener);
-
-                        AsyncJob.doInBackground(dealWithData);
-                    }
-
-                } catch (Exception ex) {
-                    Log.e(TAG, "An error has occurred within the data listening server thread.");
-                    ex.printStackTrace();
-                }
-            }
-        });
+//        AsyncJob.doInBackground(new AsyncJob.OnBackgroundJob() {
+//            @Override
+//            public void doOnBackground() {
+//                try {
+//                    //Create a server socket and wait for client connections. This
+//                    //call blocks until a connection is accepted from a client.
+//
+//                    while (isRunningAsHost || thisDevice.isRegistered) {
+//
+//                        Log.d(TAG, "\nListening for service data...");
+//
+//                        Socket dataListener = listenerServiceSocket.accept();
+//                        BackgroundDataJob dealWithData = new BackgroundDataJob(Salut.this, dataListener);
+//
+////                        AsyncJob.doInBackground(dealWithData);
+//                    }
+//
+//                } catch (Exception ex) {
+//                    Log.e(TAG, "An error has occurred within the data listening server thread.");
+//                    ex.printStackTrace();
+//                }
+//            }
+//        });
     }
 
     public void registerWithHost(final SalutDevice device, @Nullable SalutCallback onRegistered, @Nullable final SalutCallback onRegistrationFail) {
@@ -688,14 +687,7 @@ public abstract class Salut implements WifiP2pManager.ConnectionInfoListener {
          *of whether or not it is yours. To that determine if it is, we must compare our service name with the service name. If it is our service,
          * we simply log.*/
 
-        WifiP2pManager.DnsSdServiceResponseListener serviceListener = new WifiP2pManager.DnsSdServiceResponseListener() {
-            @Override
-            public void onDnsSdServiceAvailable(String instanceName, String serviceNameAndTP, WifiP2pDevice sourceDevice) {
-
-                Log.d(TAG, "Found " + instanceName + " " + serviceNameAndTP);
-
-            }
-        };
+        WifiP2pManager.DnsSdServiceResponseListener serviceListener = (instanceName, serviceNameAndTP, sourceDevice) -> Log.d(TAG, "Found " + instanceName + " " + serviceNameAndTP);
 
         /*The TXT record contains specific information about a service and it's listener can also be invoked regardless of the device. Here, we
         *double check if the device is ours, and then we go ahead and pull that specific information from it and put it into an Map. The function

@@ -1,50 +1,42 @@
 package ug.hix.hixnet2.cyphers
 
 import android.content.Context
-import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteException
 import android.util.Base64
 import android.util.Log
-import ug.hix.hixnet2.database.DeviceDatabase
-import ug.hix.hixnet2.database.WifiConfigDatabase
-import ug.hix.hixnet2.services.MeshDaemon
+
 import java.security.*
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 
+import ug.hix.hixnet2.database.HixNetDatabase
+import ug.hix.hixnet2.database.DeviceNode
+import ug.hix.hixnet2.util.Base58
+
+
 open class Generator {
 
-
-
     companion object : Generator() {
-        private val TAG = javaClass.simpleName
+        private val TAG = "Generator"
         private lateinit var pubKeyS : String
         private lateinit var priKeyS : String
         private lateinit var pid    : String
+        private lateinit var availableAddress : MutableList<String>
 
-        private var deviceInstance : DeviceDatabase? = null
-        private var configInstance : WifiConfigDatabase? = null
+        private var hixNetInstance : HixNetDatabase? = null
+        private var configInstance : HixNetDatabase? = null
 
-        //private  var deviceDb = DeviceDatabase.dbInstance(MeshDaemon().applicationContext)
-
-        fun getDeviceInstance(context : Context) : DeviceDatabase{
-            if(deviceInstance == null){
-                deviceInstance = DeviceDatabase.dbInstance(context.applicationContext)
+        fun getDatabaseInstance(context : Context) : HixNetDatabase{
+            if(hixNetInstance == null){
+                hixNetInstance = HixNetDatabase.dbInstance(context.applicationContext)
             }
 
-            return deviceInstance as DeviceDatabase
+            return hixNetInstance as HixNetDatabase
         }
 
-        fun getConfigInstance(context: Context) : WifiConfigDatabase{
-            if(configInstance == null){
-                configInstance = WifiConfigDatabase.dbInstance(context.applicationContext)
-            }
-            return configInstance as WifiConfigDatabase
-        }
         
         private fun createKeys(){
+            val deviceDb = hixNetInstance?.deviceNodeDao()
 
             val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
@@ -59,8 +51,11 @@ open class Generator {
             val digest : MessageDigest = MessageDigest.getInstance("SHA-256")
             val encodedHash = digest.digest(pubKey.encoded)
 
-            pid   = Base64.encodeToString(encodedHash, Base64.DEFAULT)
+            pid = "HixNet${Base58.encode(encodedHash)}"
 
+            //store keys in database
+            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, isMe = true)
+            deviceDb?.addDevice(device)
 
         }
 
@@ -88,6 +83,25 @@ open class Generator {
             return pid
         }
 
+        fun getMutliAddress() : String{
+            var address = ""
+            while (true){
+                val number = (111111111 + Random().nextInt(255255254 - 11111111 + 1)).toString().chunked(3)
+                address = number.joinToString(separator = ".")
+
+                if (availableAddress.contains(address)){
+                    continue
+                }else{
+                    availableAddress.add(address)
+                    break
+                }
+            }
+            Log.d(TAG,"Generated address:  $address")
+
+            return availableAddress[-1]
+
+        }
+
         fun getPrivateKey() : PrivateKey{
             val priKey = Base64.decode(priKeyS,Base64.DEFAULT) as ByteArray
             val ks   = PKCS8EncodedKeySpec(priKey)
@@ -105,36 +119,15 @@ open class Generator {
         }
 
         fun loadKeys(){
-            var keyDB : SQLiteDatabase? = null
+            val deviceDb = hixNetInstance?.deviceNodeDao()
+            priKeyS = deviceDb?.getMyPrivateKey().toString()
+            pubKeyS = deviceDb?.getMyPublicKey().toString()
+            pid     = deviceDb?.getMyPid().toString()
 
-            try{
-                Log.i(TAG, "opening db if exists")
-                keyDB = SQLiteDatabase.openDatabase("keycipher.db",null,SQLiteDatabase.OPEN_READONLY)
+            Log.d(TAG," $pid,\n $pubKeyS")
 
-                val result : Cursor = keyDB.rawQuery("Select * from Keys",null)
-
-                //the hard fucking work
-                result.moveToFirst()
-                priKeyS =   result.getString(1)
-                result.moveToNext()
-                pubKeyS  = result.getString(1)
-                result.moveToLast()
-                pid     = result.getString(1)
-
-                result.close()
-                keyDB.close()
-
-            }catch (error : SQLiteException){
-                createKeys() //initial run
-
-                Log.d(TAG, "First time creating ")
-                keyDB =  SQLiteDatabase.openOrCreateDatabase("keycipher.db",null)
-
-                keyDB?.execSQL("CREATE TABLE IF NOT EXISTS Keys(Name VARCHAR, Value VARCHAR)")
-                keyDB?.execSQL("INSERT INTO keys VALUES('privateKey','$priKeyS')")
-                keyDB?.execSQL("INSERT INTO keys VALUES('publicKey','$pubKeyS')")
-                keyDB?.execSQL("INSERT INTO keys VALUES('PID','$pid')")
-
+            if(pid.length < 6){
+                createKeys()
             }
         }
     }

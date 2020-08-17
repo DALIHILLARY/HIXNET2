@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+                                              xmlns:app="http://schemas.android.com/apk/res-auto"
+                                              xmlns:tools="http://schemas.android.com/tools"
+                                              android:id="@+id/fileItem"
+                                              android:layout_width="match_parent"
+                                              android:layout_height="wrap_content"
+                                              android:orientation="horizontal"
+                                              android:clickable="true"
+                                              android:layout_margin="10dp"
+                                              android:focusable="true"
+                                              android:padding="5dp">
+    <androidx.appcompat.widget.LinearLayoutCompat android:layout_width="wrap_content"
+                                                  android:layout_height="wrap_content"
+                                                  android:orientation="vertical"
+                                                  >
+
+
+        <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:srcCompat="@tools:sample/avatars"
+                android:id="@+id/imageView"/>
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+    <androidx.appcompat.widget.LinearLayoutCompat android:layout_width="wrap_content"
+                                                  android:layout_height="match_parent"
+                                                  android:orientation="vertical"
+                                                  android:layout_marginStart="30dp">
+
+        <TextView
+                android:text="hix"
+                android:layout_width="57dp"
+                android:layout_height="19dp"
+                android:id="@+id/fileName"
+                tools:text="fileName"
+        android:layout_marginTop="5dp"/>
+        <TextView
+                android:text="3mbs"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/fileSize"
+                tools:text="fileSize"
+        android:layout_marginTop="30dp"/>
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+
+</androidx.appcompat.widget.LinearLayoutCompat>

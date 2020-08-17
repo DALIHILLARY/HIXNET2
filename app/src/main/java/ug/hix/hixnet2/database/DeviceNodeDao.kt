@@ -19,11 +19,11 @@ interface DeviceNodeDao {
     @Query("SELECT * FROM devicenode WHERE master = 0")
     fun getNoMasterDevices() : List<DeviceNode>
 
-    @Query("SELECT instanceName FROM devicenode ")
-    fun getAllInstanceNames()  : List<String>
+    @Query("SELECT meshID FROM devicenode ")
+    fun getAllPids()  : List<String>
 
-    @Query("SELECT instanceName FROM devicenode WHERE meshID LIKE :meshId")
-    fun getInstanceName(meshId : String) : String
+    @Query("SELECT meshID FROM devicenode WHERE meshID LIKE :meshId")
+    fun getPid(meshId : String) : String
 
     @Query("SELECT * FROM devicenode WHERE isMe = 1")
     fun getDeviceInfo() : DeviceNode
@@ -33,6 +33,9 @@ interface DeviceNodeDao {
 
     @Query("SELECT publicKey FROM devicenode WHERE isMe =  1")
     fun getMyPublicKey() : String
+
+    @Query("SELECT meshID FROM devicenode WHERE isMe = 1")
+    fun getMyPid()  : String
 
     @Query("SELECT publicKey FROM devicenode WHERE meshID LIKE :meshId")
     fun getNodePublicKey(meshId : String) : String
