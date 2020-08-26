@@ -5,6 +5,7 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.util.Log
+import java.lang.Thread.sleep
 
 class AddConfigs {
     fun insertNonP2pConfig(context : Context, device : ScanResult) : Pair<Int?,String> {
@@ -15,6 +16,8 @@ class AddConfigs {
         val password = device.SSID.drop(6).reversed()
         mWifiConfig.preSharedKey = "\"$password\""
         val netId = mWifiManager.addNetwork(mWifiConfig)
+
+        sleep(2000L)
         mWifiManager.enableNetwork(netId, false)
         Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : $password netId : $netId")
         return Pair(netId,password)
@@ -28,6 +31,8 @@ class AddConfigs {
         mWifiConfig.BSSID = "\"${connectInfo[1]}\""
         mWifiConfig.preSharedKey = "\"${connectInfo[2]}\""
         val netId = mWifiManager.addNetwork(mWifiConfig)
+
+        sleep(2000L)
         mWifiManager.enableNetwork(netId, false)
 
         Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : ${mWifiConfig.preSharedKey} netId : $netId")

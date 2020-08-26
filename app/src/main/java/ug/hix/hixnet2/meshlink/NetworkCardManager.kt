@@ -1,6 +1,5 @@
 package ug.hix.hixnet2.meshlink
 
-import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,20 +11,15 @@ import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
-import android.preference.PreferenceManager
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.knexis.hotspot.Hotspot
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.database.HixNetDatabase
-import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.util.AddConfigs
 import java.lang.Thread.sleep
-import kotlin.concurrent.thread
 
 
 class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel) : MeshServiceManager(context,manager,channel) {
@@ -53,8 +47,9 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     private val addConfig = AddConfigs()
 
     private val SYNCTIME = 800L
-    private var LASTCONNECTTIMESYNC = 0L
-    private var LASTDISCONTIMESYNC = 0L
+    private var LAST_CONNECT_TIMESYNC = 0L
+    private var LAST_DISCON_TIMESYNC = 0L
+    private var LAST_WIFI_SCAN = 0L
 
     private val intentFilter = IntentFilter().apply {
         addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
@@ -74,9 +69,9 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                 WifiManager.RSSI_CHANGED_ACTION -> {
                     val rssi = intent.getIntExtra(WifiManager.EXTRA_NEW_RSSI,1)
                     if (rssi < -90){
-                        if(!lowSignal){
+                        if(!lowSignal and hadConnection){
                             lowSignal = true
-                            //wifiScanner()
+                            wifiScanner()
                             //TODO("send about to disconnect event")
 
                         }
@@ -86,16 +81,20 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                     Log.d(TAG, "new rssi is $rssi")
                 }
                 WifiManager.SCAN_RESULTS_AVAILABLE_ACTION -> {
+                    if(System.currentTimeMillis() - LAST_WIFI_SCAN >= 120000L) {
+                        LAST_WIFI_SCAN = System.currentTimeMillis()
 
-                    val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED,false)
-                    } else {
-                        intent.getBooleanExtra("resultsUpdated",false)
-                    }
-                    if(success){
-                        scanSuccess()
-                    }else{
-                        scanFailure()
+                        val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)
+                        } else {
+                            intent.getBooleanExtra("resultsUpdated", false)
+                        }
+                        if (success) {
+                            scanSuccess()
+                        } else {
+                            scanFailure()
+                        }
+
                     }
 
                 }
@@ -103,8 +102,8 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                     val info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO) as NetworkInfo
                     if (info.isConnected) {
 
-                        if(System.currentTimeMillis() - LASTCONNECTTIMESYNC >= SYNCTIME){
-                            LASTCONNECTTIMESYNC = System.currentTimeMillis()
+                        if(System.currentTimeMillis() - LAST_CONNECT_TIMESYNC >= SYNCTIME){
+                            LAST_CONNECT_TIMESYNC = System.currentTimeMillis()
                             hadConnection = true
                             isScanning  = true
 
@@ -113,17 +112,16 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
                             if(conSSID.startsWith("DIRECT") || conSSID.startsWith("HIXNET")){
 
-                                runBlocking {
-                                    launch {
-                                        val stringTest = "am here please".toByteArray()
-                                        while(true){
-                                            Licklider.getInstance(mContext).send(stringTest,"230.123.0.1",33456)
-                                            delay(3000L)
-                                        }
-                                    }
-                                }
-                                //send connect event info to master
-
+//                                runBlocking {
+//                                    launch {
+//                                        val stringTest = "am here please".toByteArray()
+//                                        while(true){
+//                                            Licklider.getInstance(mContext).send(stringTest,"230.123.0.1",33456)
+//                                            delay(3000L)
+//                                        }
+//                                    }
+//                                }
+                                //TODO("send connect event to master")
 
                             }else{
                                 hasInternet = true
@@ -138,21 +136,18 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
 
                     } else if(info.detailedState == NetworkInfo.DetailedState.DISCONNECTED) {
-//                            if(System.currentTimeMillis() - LASTDISCONTIMESYNC >= SYNCTIME){
-//                                LASTDISCONTIMESYNC = System.currentTimeMillis()
-//                                hasInternet = false
-//                                GlobalScope.launch{
-//                                      delay(2000)
-//                                      if(!isScanning){
-//                                          isScanning = true
-//                                          wifiScanner()
-//                                          isScanning = false // done scanning
-//
-//                                      }
-//                                  }
-//
-//                            Log.d(TAG,"Disconnected From WIFI")
-//                        }
+                            if(System.currentTimeMillis() - LAST_DISCON_TIMESYNC >= 120000L){
+                                LAST_DISCON_TIMESYNC = System.currentTimeMillis()
+                                hasInternet = false
+                                hadConnection = false
+
+                                mWifiManager.reconnect() //try reconnecting to wifi
+                                wifiScanner()
+
+                                Log.d(TAG,"Disconnected From WIFI")
+
+                            }
+
                     }
 
                 }
@@ -163,29 +158,26 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     }
 
     private fun registerWifiBroadcast(){
-        isRegistered = true
+        isWifiRegistered = true
         mContext.registerReceiver(wifiScanReceiver,intentFilter)
 
     }
 
-    fun wifiScanner(){
+    private fun wifiScanner(){
         scanStarted = mWifiManager.startScan()
 
-        if(!scanStarted){
-            scanFailure()
-        }
     }
     private fun scanFailure(){
         Log.d(TAG,"Scan Failed using Previous results")
         wifiScanResults = mWifiManager.scanResults
 
-        //filterResults()
+        filterResults()
     }
     private fun scanSuccess(){
         Log.d(TAG,"NEW  scan complete results")
         wifiScanResults = mWifiManager.scanResults
 
-        //filterResults()
+        filterResults()
 
     }
 
@@ -202,66 +194,62 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
             val (nonP2pHotspots,p2pHotspots) = filteredResults.partition{it.SSID.startsWith("HixNet")}
 
             if(nonP2pHotspots.isNotEmpty()){
-                runBlocking {
-                    launch {
-                        val dbInstance = HixNetDatabase.dbInstance(mContext)
-                        val wifiDb = dbInstance.wifiConfigDao()
 
-                        val macList = wifiDb.getAllMac()
-                        nonP2pHotspots.forEach{
+                GlobalScope.launch{
+                    val dbInstance = HixNetDatabase.dbInstance(mContext)
+                    val wifiDb = dbInstance.wifiConfigDao()
 
-                            if(!macList!!.contains(it.BSSID)){
-                                val (netId,password) = addConfig.insertNonP2pConfig(mContext,it)
+                    val macList = wifiDb.getAllMac()
 
-                                val wifiConfig = netId?.let { it1 -> WifiConfig(it1,it.SSID,it.BSSID ,password)} as WifiConfig
+                    var firstDevice = false
+                    nonP2pHotspots.forEach{
 
-                                wifiDb.addConfig(wifiConfig)
-                            }else{
-                                if(!connecting){
-                                    connecting = true
-                                    val netId = wifiDb.getDeviceConfigByMac(it.BSSID).netId
-                                    mWifiManager.enableNetwork(netId,true)
-                                }
+                        if(!macList.contains(it.BSSID)){
+                            val (netId,password) = addConfig.insertNonP2pConfig(mContext,it)
 
+                            if(!firstDevice){
+                                firstDevice = true
+                                mWifiManager.enableNetwork(netId!!,true)
+                                mWifiManager.reconnect()
                             }
 
-                        }
-                        //close db connection
-                        dbInstance.close()
+                            val wifiConfig = netId?.let { it1 -> WifiConfig(it1,it.SSID,it.BSSID ,password)} as WifiConfig
 
+                            wifiDb.addConfig(wifiConfig)
+                        }
 
                     }
+                    //close db connection
+                    dbInstance.close()
+
                 }
 
             }else{
                 if(p2pHotspots.isNotEmpty()){
 
-                    runBlocking {
+                    GlobalScope.launch {
+                        val dbInstance = HixNetDatabase.dbInstance(mContext)
+                        val wifiDb = dbInstance.wifiConfigDao()
 
-                        launch {
-                            val dbInstance = HixNetDatabase.dbInstance(mContext)
-                            val wifiDb = dbInstance.wifiConfigDao()
+                        val macList = wifiDb.getAllMac()
 
-                            val macList = wifiDb.getAllMac()
-
-                            nonP2pHotspots.forEach {
-
-                                if (!macList.contains(it.BSSID)) {
-                                    if(!connecting){
-                                        connecting = true
-                                        val netId = wifiDb.getDeviceConfigByMac(it.BSSID).netId
-                                        mWifiManager.enableNetwork(netId,true)
-                                    }
-                                }else{
-                                    if(!isDiscovering){
-                                        isDiscovering = true
-                                        startServiceDiscovery()
-                                    }
-
+                        nonP2pHotspots.forEach {
+                            if (!macList.contains(it.BSSID)) {
+                                if(!connecting){
+                                    connecting = true
+                                    val netId = wifiDb.getDeviceConfigByMac(it.BSSID).netId
+                                    mWifiManager.enableNetwork(netId,true)
                                 }
+                            }else{
+                                if(!isDiscovering){
+                                    isDiscovering = true
+                                    startServiceDiscovery()
+                                    sleep(60000L)
+                                }
+
                             }
-                            dbInstance.close()
                         }
+                        dbInstance.close()
                     }
 
                 }
@@ -270,12 +258,9 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
         }
 
-        sleep(2000)
-        if(p2pSupport){
+        sleep(2000L)
+        if(!isMaster){
             createGroup()
-////            if(isMaster){
-////                registerService()
-////            }
         }
 
     }
@@ -366,6 +351,7 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     fun unregisterCard(){
         mContext.unregisterReceiver(wifiScanReceiver)
         unregisterP2p()
+        isWifiRegistered = false
     }
 
     companion object{

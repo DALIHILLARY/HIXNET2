@@ -8,15 +8,6 @@ import ug.hix.hixnet2.models.Packet
 
 open class LickBuffers {
 
-    lateinit var primaryBuffers : ByteArray
-    lateinit var secondaryBuffer : ByteArray
-    lateinit var recvBuffer : ByteArray
-    lateinit var device : DeviceNode
-    lateinit var ack  : ACK
-    lateinit var queueBuffer : MutableList<Packet>
-    lateinit var keyCounter : MutableMap<String, Int>
-    lateinit var myMessagesQueue : MutableList<Packet>
-
 
     private fun decodeData(array : ByteArray , type : String){
         when(type){
@@ -75,7 +66,7 @@ open class LickBuffers {
     protected fun dataMapping(packet : Packet){
         lateinit var info : ByteArray
 
-        if(packet.expected as Int  > 1){
+        if(packet.expected > 1){
             val key = packet.packetID
 
             //enqueue message for sorting
@@ -91,7 +82,7 @@ open class LickBuffers {
             }
             myMessagesQueue.add(packet)
 
-            if(keyCounter[key]  == packet.expected as Int){
+            if(keyCounter[key]  == packet.expected){
                 val (fullyReceived, others) = myMessagesQueue.partition { it.packetID == key }
                 myMessagesQueue = others as MutableList<Packet>
 
@@ -107,6 +98,17 @@ open class LickBuffers {
             decodeData(info,packet.messageType)
 
         }
+    }
+    companion object {
+        var primaryBuffers = byteArrayOf()
+        var secondaryBuffer = byteArrayOf()
+        lateinit var recvBuffer : ByteArray
+        lateinit var device : DeviceNode
+        lateinit var ack  : ACK
+        lateinit var queueBuffer : MutableList<Packet>
+        var keyCounter = mutableMapOf<String, Int>()
+        lateinit var myMessagesQueue : MutableList<Packet>
+
     }
 
 

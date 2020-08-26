@@ -10,7 +10,6 @@ import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
-import android.os.Handler
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -42,8 +41,11 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
     private val receiver = MeshBroadcastReceiver(this,manager,channel)
     private val addConfig = AddConfigs()
 
+    private var setResponders = false
+    private var serviceKiller = false
+
     var isServiceStarted = false
-    var isRegistered  = false
+    var isP2pRegistered  = false
     var isDiscovering   = false
     var hasWifiInternet  = false
     var isMaster         = false
@@ -66,10 +68,10 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
   private fun registerP2pBroadcast(){
 
       mContext.registerReceiver(receiver,intentFilter)
-      isRegistered = true
+      isP2pRegistered = true
 
   }
-
+    @SuppressLint("MissingPermission")
     private fun registerService(){
 
         val record = mutableMapOf<String,String>()
@@ -84,20 +86,6 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
 
         val serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(instanceName,"_TTP._udp",record)
 
-        if (ActivityCompat.checkSelfPermission(
-                mContext,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
         manager.addLocalService(channel,serviceInfo, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 Toast.makeText(mContext,instanceName,Toast.LENGTH_LONG).show()
@@ -135,64 +123,52 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
                     val BSSID = connectInfo?.get(1)
                     foundDevices[BSSID!!] = result
                 }
-                Toast.makeText(mContext, result.toString(),Toast.LENGTH_LONG).show()
                 Log.d(TAG,"Found Mesh Device $result")
 
             }
-            if(!addingToKnown){
-                addingToKnown = true
-                GlobalScope.launch {
-                    delay(2000L) // Delay execution so that we get results
 
-                    val dbInstance = HixNetDatabase.dbInstance(mContext)
-                    val wifiDb = dbInstance.wifiConfigDao()
+            GlobalScope.launch {
 
-                    val macList = wifiDb.getAllMac()
-                    val devices = foundDevices.toList()
+                val dbInstance = HixNetDatabase.dbInstance(mContext)
+                val wifiDb = dbInstance.wifiConfigDao()
 
-                    devices.forEach{
-                        val connectInfo = it.second.split("::")
+                val macList = wifiDb.getAllMac()
+                val devices = foundDevices.toList()
 
-                        if(!macList.contains(connectInfo[1])){
-                            val netId = addConfig.insertP2pConfig(mContext,connectInfo)
+                devices.forEach{
+                    val connectInfo = it.second.split("::")
 
-                            val wifiConfig = WifiConfig(netId,connectInfo[0],connectInfo[1],connectInfo[2])
-                            wifiDb.addConfig(wifiConfig)
-                        }
+                    if(!macList.contains(connectInfo[1])){
+                        val netId = addConfig.insertP2pConfig(mContext,connectInfo)
+
+                        val wifiConfig = WifiConfig(netId,connectInfo[0],connectInfo[1],connectInfo[2])
+                        wifiDb.addConfig(wifiConfig)
                     }
-
-                    dbInstance.close()
                 }
+
+                dbInstance.close()
             }
 
         }
         manager.setDnsSdResponseListeners(channel, serviceListener, txtListener)
 
-        val serviceRequest = WifiP2pDnsSdServiceRequest.newInstance()
-        manager.addServiceRequest(channel, serviceRequest,
-            object : WifiP2pManager.ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG,"service request added successfully")
-                }
-
-                override fun onFailure(code: Int) {
-                    Log.e(TAG, "SERVICE REQUEST FAILED ERROR: $code")
-                }
-            }
-        )
-
 
     }
     fun startServiceDiscovery(){
-        if(!isRegistered){
+        serviceKiller = false
+        if(!isP2pRegistered){
             registerP2pBroadcast()
         }
         //set up service listeners
-        setupDnsResponders()
+        if(!setResponders){
+            setResponders = true
+            setupDnsResponders()
+
+        }
 
         GlobalScope.launch {
             while(true){
-                if(foundDevices.isNotEmpty()){
+                if(foundDevices.isNotEmpty() || serviceKiller){
                     break
                 }
                 serviceDiscovery()
@@ -249,7 +225,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
                                             val (hotspotName,keyPass) = Generator.getWifiPassphrase()
 
                                             hotspot.start(hotspotName,keyPass)
-                                            TODO("GET THE HOTSPOT FEATURE WORKING")
+                                            //TODO("GET THE HOTSPOT FEATURE WORKING")
                                         }
                                         WifiP2pManager.NO_SERVICE_REQUESTS -> {
                                             Log.d(TAG,"No service requests detected")
@@ -279,6 +255,31 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
         })
     }
 
+    private fun discoverPeers(){
+        manager.stopPeerDiscovery(channel, object : WifiP2pManager.ActionListener {
+            @SuppressLint("MissingPermission")
+            override fun onSuccess() {
+                manager.discoverPeers(channel,
+                    object : WifiP2pManager.ActionListener{
+                        override fun onSuccess() {
+                            Log.d(TAG,"Discover peers success")
+                        }
+
+                        override fun onFailure(reason: Int) {
+                            Log.e(TAG,"Discover Peers failed")
+                        }
+
+                    })
+            }
+
+            override fun onFailure(reason: Int) {
+                Log.e(TAG,"stop peer discovery")
+            }
+
+        })
+
+    }
+
     private fun deactivateService(){
         manager.clearLocalServices(channel, object : WifiP2pManager.ActionListener{
             override fun onSuccess() {
@@ -303,14 +304,14 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
                 isServerRunning = true
                 //listen for command and join packets
                 thread{
-                    Licklider.getInstance(mContext).receiver()
+//                    Licklider(mContext).receiver()
                 }
             }
         }
     }
 
     fun createGroup(){
-        if(!isRegistered){
+        if(!isP2pRegistered){
             registerP2pBroadcast()
         }
         if (ActivityCompat.checkSelfPermission(
@@ -401,7 +402,8 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
     }
 
     fun unregisterP2p(){
-        isRegistered = false
+        serviceKiller = true
+        isP2pRegistered = false
         mContext.unregisterReceiver(receiver)
     }
 

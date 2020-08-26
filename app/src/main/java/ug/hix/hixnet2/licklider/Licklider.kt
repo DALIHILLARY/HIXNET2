@@ -25,9 +25,6 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
     private val p2p0 = NetworkInterface.getByName("p2p0")
     private val wlan0 = NetworkInterface.getByName("wlan0")
 
-    //TODO("get mytliaddress from device info")
-    val group = InetAddress.getByName("230.0.0.11")
-
     private lateinit var message : Any
     private lateinit var buffer : ByteArray
     private lateinit var range : ByteArray
@@ -37,9 +34,7 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
 
     private val multicastLock = mWifiManager.createMulticastLock("multicastLock")
 
-
-
-    private fun loadData(message : Any){
+    fun loadData(message : Any){
         this.message = message
 
         packet.packetID = Generator.genMID()
@@ -72,9 +67,11 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
 
             }
         }
+
+        splitter(packet)
     }
 
-    private fun splitter(){
+    private fun splitter(packet : Packet){
 
          val blockSize = 1200;
          val blockCount = (buffer.size + blockSize - 1) / blockSize
@@ -116,13 +113,13 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
 
 
 
-    protected fun packetHandler(buffer : ByteArray){
-        packet = Packet.ADAPTER.decode(buffer)
+    private fun packetHandler(buffer : ByteArray){
+        val packet = Packet.ADAPTER.decode(buffer)
 
         //we don't handle packet from our own node incase of broadcast conflict
         if(packet.fromMeshID != Generator.getPID()){
             if(packet.toMeshID == Generator.getPID()){
-                    TODO("FILL MESAGE IS MINE")
+                dataMapping(packet)
             }else{
                 forward(packet,::send)
             }
@@ -131,7 +128,7 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
     }
 
 
-    @Synchronized fun send(packet : ByteArray?, ipAddress : String?, port : Int?){
+    @Synchronized private fun send(packet : ByteArray?, ipAddress : String?, port : Int?){
         if(!multicastLock.isHeld){
             multicastLock.acquire()
         }
@@ -150,11 +147,14 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
 
     }
 
-    @Synchronized fun receiver(){
+    @Synchronized fun receiver(multicastAddress : String){
         if(!multicastLock.isHeld){
             multicastLock.acquire()
         }
-
+        if(group != null){
+            endSocket()
+        }
+        group = InetAddress.getByName(multicastAddress)
         socket.joinGroup(InetSocketAddress(group,PORT),p2p0)
         socket.joinGroup(InetSocketAddress(group,PORT),wlan0)
 
@@ -163,25 +163,14 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
             val packet = DatagramPacket(rBuffer, rBuffer.size)
             socket.receive(packet)
 
-            val msg = String(
-                packet.data,
-                packet.offset, packet.length
-            )
-            Handler(Looper.getMainLooper()).post {
-
-                Toast.makeText(mContext,msg,Toast.LENGTH_SHORT).show()
-            }
-
-           // packetHandler(packet.data)
+            packetHandler(packet.data)
         }
 
     }
 
-    fun endSocket(){
+    private fun endSocket(){
         socket.leaveGroup(InetSocketAddress(group,PORT),p2p0)
         socket.leaveGroup(InetSocketAddress(group,PORT),wlan0)
-        socket.close()
-
     }
 
     fun enqueuePacket() {
@@ -197,19 +186,11 @@ open class Licklider(private val mContext : Context) : LickBuffers() {
         }
     }
 
-    companion object{
-        var instance : Licklider? = null
-
-        fun getInstance(context : Context) : Licklider{
-            if(instance == null){
-
-                instance = Licklider(context)
-
-            }
-            return instance as Licklider
-        }
+    companion object {
+        var group : InetAddress? = null
 
     }
+
 }
 
 

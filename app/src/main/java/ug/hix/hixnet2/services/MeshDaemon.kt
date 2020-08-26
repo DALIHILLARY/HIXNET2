@@ -67,7 +67,8 @@ class MeshDaemon : Service() {
         }
 
          //cardManager.startServiceDiscovery()
-        cardManager.createGroup()
+//        cardManager.createGroup()
+        cardManager.isWiFiEnabled()
         return START_STICKY
 
     }
@@ -76,7 +77,7 @@ class MeshDaemon : Service() {
         super.onDestroy()
         MeshDaemon.isServiceRunning = false
         cardManager.removeGroup()
-//        cardManager.unregisterCard()
+        cardManager.unregisterCard()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
