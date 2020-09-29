@@ -13,16 +13,21 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.util.Log
 import com.knexis.hotspot.Hotspot
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.database.HixNetDatabase
+import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.util.AddConfigs
 import java.lang.Thread.sleep
+import kotlin.coroutines.CoroutineContext
 
 
-class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel) : MeshServiceManager(context,manager,channel) {
+class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel,
+                         override val coroutineContext: CoroutineContext
+) : MeshServiceManager(context,manager,channel), CoroutineScope {
     //this class will handle all wifi associated operations
     private val mContext = context
     private val TAG = javaClass.simpleName
@@ -41,10 +46,10 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     private var  netId : Int? = null
 
 
-    private val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val cm =      mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val mWifiConfig   = WifiConfiguration()
     private val addConfig = AddConfigs()
+    private val licklider = Licklider.start(mContext)
 
     private val SYNCTIME = 800L
     private var LAST_CONNECT_TIMESYNC = 0L
@@ -111,25 +116,22 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                             val conSSID = mWifiManager.connectionInfo.ssid
 
                             if(conSSID.startsWith("DIRECT") || conSSID.startsWith("HIXNET")){
+                                var address = device.peers.find { peer ->
+                                    peer.instanceName == conSSID
+                                }?.multicastAddress
+                                if(address == null){
+                                    address = repo.getWifiConfigBySsid(conSSID).connAddress
+                                }
+                                launch(coroutineContext) {
+                                    licklider.loadData(device,address) //hello request to host
+                                }
 
-//                                runBlocking {
-//                                    launch {
-//                                        val stringTest = "am here please".toByteArray()
-//                                        while(true){
-//                                            Licklider.getInstance(mContext).send(stringTest,"230.123.0.1",33456)
-//                                            delay(3000L)
-//                                        }
-//                                    }
-//                                }
-                                //TODO("send connect event to master")
 
                             }else{
                                 hasInternet = true
                             }
 
-                            if(!isMaster){
-                                createGroup()
-                            }
+                            startGroup()
 
                             Log.d(TAG, "CONNECTED to wifi")
                         }
@@ -160,6 +162,7 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     private fun registerWifiBroadcast(){
         isWifiRegistered = true
         mContext.registerReceiver(wifiScanReceiver,intentFilter)
+        registerP2pBroadcast()
 
     }
 
@@ -196,31 +199,27 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
             if(nonP2pHotspots.isNotEmpty()){
 
                 GlobalScope.launch{
-                    val dbInstance = HixNetDatabase.dbInstance(mContext)
-                    val wifiDb = dbInstance.wifiConfigDao()
 
-                    val macList = wifiDb.getAllMac()
+                    val macList = repo.getAllMac()
 
                     var firstDevice = false
-                    nonP2pHotspots.forEach{
+                    nonP2pHotspots.forEach{scanResult ->
 
-                        if(!macList.contains(it.BSSID)){
-                            val (netId,password) = addConfig.insertNonP2pConfig(mContext,it)
+                        if(!macList.contains(scanResult.BSSID)){
+                            val (netId,password) = addConfig.insertNonP2pConfig(mContext,scanResult)
 
                             if(!firstDevice){
                                 firstDevice = true
                                 mWifiManager.enableNetwork(netId!!,true)
                                 mWifiManager.reconnect()
                             }
+//                            TODO("FIX CONN ADDrESS BUG IN NONP2P HOTSPOTS 4 INITIAL TRANSACTIONS")
+                            val wifiConfig = netId?.let { _netId -> WifiConfig(_netId,scanResult.SSID,scanResult.BSSID ,password,"")} as WifiConfig
 
-                            val wifiConfig = netId?.let { it1 -> WifiConfig(it1,it.SSID,it.BSSID ,password)} as WifiConfig
-
-                            wifiDb.addConfig(wifiConfig)
+                            repo.addWifiConfig(wifiConfig)
                         }
 
                     }
-                    //close db connection
-                    dbInstance.close()
 
                 }
 
@@ -228,16 +227,14 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                 if(p2pHotspots.isNotEmpty()){
 
                     GlobalScope.launch {
-                        val dbInstance = HixNetDatabase.dbInstance(mContext)
-                        val wifiDb = dbInstance.wifiConfigDao()
 
-                        val macList = wifiDb.getAllMac()
+                        val macList = repo.getAllMac()
 
                         nonP2pHotspots.forEach {
                             if (!macList.contains(it.BSSID)) {
                                 if(!connecting){
                                     connecting = true
-                                    val netId = wifiDb.getDeviceConfigByMac(it.BSSID).netId
+                                    val netId = repo.getWifiConfigByMac(it.BSSID).netId
                                     mWifiManager.enableNetwork(netId,true)
                                 }
                             }else{
@@ -249,7 +246,6 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
                             }
                         }
-                        dbInstance.close()
                     }
 
                 }
@@ -257,12 +253,14 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
             }
 
         }
+        startGroup()
 
+    }
+    private fun startGroup(){
         sleep(2000L)
-        if(!isMaster){
+        if(!super.isMaster){
             createGroup()
         }
-
     }
 
    private fun enableWiFi() {
@@ -358,9 +356,9 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
         var instance : NetworkCardManager? = null
         var channel : WifiP2pManager.Channel? = null
 
-        fun getNetworkManagerInstance(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel) : NetworkCardManager{
+        fun getNetworkManagerInstance(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel,coroutineContext: CoroutineContext) : NetworkCardManager{
             if(instance == null){
-                instance = NetworkCardManager(context,manager, channel)
+                instance = NetworkCardManager(context,manager, channel,coroutineContext)
             }
 
             return instance as NetworkCardManager

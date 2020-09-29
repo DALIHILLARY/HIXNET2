@@ -38,6 +38,11 @@ class ACK(
     label = WireField.Label.PACKED
   )
   val expectedOffset: List<Int> = emptyList(),
+  @field:WireField(
+    tag = 3,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val toMeshID: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<ACK, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -52,6 +57,7 @@ class ACK(
     return unknownFields == other.unknownFields
         && ackID == other.ackID
         && expectedOffset == other.expectedOffset
+        && toMeshID == other.toMeshID
   }
 
   override fun hashCode(): Int {
@@ -60,6 +66,7 @@ class ACK(
       result = unknownFields.hashCode()
       result = result * 37 + ackID.hashCode()
       result = result * 37 + expectedOffset.hashCode()
+      result = result * 37 + toMeshID.hashCode()
       super.hashCode = result
     }
     return result
@@ -69,14 +76,16 @@ class ACK(
     val result = mutableListOf<String>()
     result += """ackID=${sanitize(ackID)}"""
     if (expectedOffset.isNotEmpty()) result += """expectedOffset=$expectedOffset"""
+    result += """toMeshID=${sanitize(toMeshID)}"""
     return result.joinToString(prefix = "ACK{", separator = ", ", postfix = "}")
   }
 
   fun copy(
     ackID: String = this.ackID,
     expectedOffset: List<Int> = this.expectedOffset,
+    toMeshID: String = this.toMeshID,
     unknownFields: ByteString = this.unknownFields
-  ): ACK = ACK(ackID, expectedOffset, unknownFields)
+  ): ACK = ACK(ackID, expectedOffset, toMeshID, unknownFields)
 
   companion object {
     @JvmField
@@ -88,27 +97,32 @@ class ACK(
       override fun encodedSize(value: ACK): Int = 
         ProtoAdapter.STRING.encodedSizeWithTag(1, value.ackID) +
         ProtoAdapter.INT32.asPacked().encodedSizeWithTag(2, value.expectedOffset) +
+        ProtoAdapter.STRING.encodedSizeWithTag(3, value.toMeshID) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: ACK) {
         if (value.ackID != "") ProtoAdapter.STRING.encodeWithTag(writer, 1, value.ackID)
         ProtoAdapter.INT32.asPacked().encodeWithTag(writer, 2, value.expectedOffset)
+        if (value.toMeshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.toMeshID)
         writer.writeBytes(value.unknownFields)
       }
 
       override fun decode(reader: ProtoReader): ACK {
         var ackID: String = ""
         val expectedOffset = mutableListOf<Int>()
+        var toMeshID: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> ackID = ProtoAdapter.STRING.decode(reader)
             2 -> expectedOffset.add(ProtoAdapter.INT32.decode(reader))
+            3 -> toMeshID = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
         return ACK(
           ackID = ackID,
           expectedOffset = expectedOffset,
+          toMeshID = toMeshID,
           unknownFields = unknownFields
         )
       }

@@ -12,14 +12,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/textView2" android:fontFamily="sans-serif-black"
-            android:textSize="18sp" app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginBottom="257dp"/>
+            android:textSize="18sp"
+            app:layout_constraintTop_toBottomOf="@+id/imageView2" app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" android:layout_marginTop="10dp"/>
     <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" app:srcCompat="@drawable/spiderlarge"
             android:id="@+id/imageView2"
-            app:layout_constraintStart_toStartOf="@+id/textView2"
-            android:layout_marginStart="20dp" android:layout_marginBottom="62dp"
-            app:layout_constraintBottom_toTopOf="@+id/textView2"/>
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintVertical_bias="0.468"
+            app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

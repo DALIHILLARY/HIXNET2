@@ -6,7 +6,7 @@ import com.google.gson.reflect.TypeToken
 
 class ServiceConverter {
     @TypeConverter
-    fun toService(json : String?) : List<Services> {
+    fun toService(json : String?) : List<Services>? {
         val type = object : TypeToken<List<Services>>(){}.type
         return Gson().fromJson(json,type)
     }

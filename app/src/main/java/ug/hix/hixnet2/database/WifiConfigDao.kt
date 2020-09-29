@@ -16,10 +16,13 @@ interface WifiConfigDao {
     @Query("SELECT mac FROM wificonfig")
     fun getAllMac()   : List<String>
 
+    @Query("SELECT netId FROM wificonfig")
+    fun getAllNetId() : List<Int>
+
     @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
     fun getDeviceConfigBySsid(ssid : String) : WifiConfig
 
-    @Query("SELECT netId FROM WifiConfig WHERE ssid = :ssid")
+    @Query("SELECT netId FROM wificonfig WHERE ssid = :ssid")
     fun getDeviceNetId(ssid : String) : Int
 
     @Query("SELECT * FROM wificonfig WHERE mac = :mac")

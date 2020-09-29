@@ -20,13 +20,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            app:hideOnScroll="true"
             app:backgroundTint="@color/colorPrimaryDark"
             app:menu="@menu/app_bar_menu"
             app:navigationIcon="@drawable/ic_menu"
             app:fabAlignmentMode="end"
     />
 
+    <FrameLayout
+            android:id="@+id/gray_out_home"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@color/transparent_black"
+            android:visibility="visible">
+
+    </FrameLayout>
     <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabStart"
             android:layout_width="wrap_content"
@@ -36,6 +45,5 @@
             app:layout_anchor="@id/bottomAppBar"
 
     />
-
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

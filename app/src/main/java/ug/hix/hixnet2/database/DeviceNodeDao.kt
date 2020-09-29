@@ -1,5 +1,6 @@
 package ug.hix.hixnet2.database
 
+import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -11,16 +12,16 @@ interface DeviceNodeDao {
     fun addDevice(device : DeviceNode)
 
     @Query("SELECT * FROM devicenode")
-    fun getAllDevices() : List<DeviceNode>
+    fun getAllDevices() : LiveData<List<DeviceNode>>
 
     @Query("SELECT * FROM devicenode WHERE master = 1")
-    fun getMasterDevices() : List<DeviceNode>
+    fun getMasterDevices() : LiveData<List<DeviceNode>>
 
     @Query("SELECT * FROM devicenode WHERE master = 0")
-    fun getNoMasterDevices() : List<DeviceNode>
+    fun getNoMasterDevices() : LiveData<List<DeviceNode>>
 
     @Query("SELECT meshID FROM devicenode ")
-    fun getAllPids()  : List<String>
+    fun getAllPids()  : LiveData<List<String>>
 
     @Query("SELECT meshID FROM devicenode WHERE meshID LIKE :meshId")
     fun getPid(meshId : String) : String

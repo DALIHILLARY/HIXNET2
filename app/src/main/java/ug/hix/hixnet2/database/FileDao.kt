@@ -17,4 +17,9 @@ interface FileDao {
     @Query("SELECT CID FROM file")
     fun gelAllCID() : List<String>
 
+    @Query("SELECT * FROM file")
+    fun getFiles() : List<File>
+
+    @Query("SELECT * FROM file WHERE CID LIKE :cid")
+    fun getFileByCid(cid: String) : File
 }

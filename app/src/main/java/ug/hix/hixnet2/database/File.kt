@@ -9,5 +9,6 @@ data class File(
     val path : String,
     val size : Int,
     val cloudName : String,
+    val extension : String,
     val modified : String
 )

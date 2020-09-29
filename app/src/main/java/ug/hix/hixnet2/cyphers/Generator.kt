@@ -12,6 +12,13 @@ import java.util.*
 import ug.hix.hixnet2.database.HixNetDatabase
 import ug.hix.hixnet2.database.DeviceNode
 import ug.hix.hixnet2.util.Base58
+import java.io.File
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import ug.hix.hixnet2.models.DeviceNode as Device
+
+import java.lang.Exception
+import java.net.NetworkInterface
 
 
 open class Generator {
@@ -21,10 +28,8 @@ open class Generator {
         private lateinit var pubKeyS : String
         private lateinit var priKeyS : String
         private lateinit var pid    : String
-        private lateinit var availableAddress : MutableList<String>
 
         private var hixNetInstance : HixNetDatabase? = null
-        private var configInstance : HixNetDatabase? = null
 
         fun getDatabaseInstance(context : Context) : HixNetDatabase{
             if(hixNetInstance == null){
@@ -52,9 +57,10 @@ open class Generator {
             val encodedHash = digest.digest(pubKey.encoded)
 
             pid = "HixNet${Base58.encode(encodedHash)}"
-
+            val macAddress = getMacAddress()
+            val multicastAddress =  getMultiAddress(null,null)
             //store keys in database
-            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, isMe = true)
+            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, macAddress = macAddress, multicastAddress = multicastAddress, isMe = true)
             deviceDb?.addDevice(device)
 
         }
@@ -67,8 +73,6 @@ open class Generator {
             passKey = alphaNumericString.toList().shuffled().joinToString(separator = "",limit = 8, truncated = "")
 
             hotspotName = "HixNet" + passKey.reversed()
-
-            val instanceName = "$hotspotName:$passKey"
 
             return Pair(hotspotName,passKey)
         }
@@ -83,23 +87,64 @@ open class Generator {
             return pid
         }
 
-        fun getMutliAddress() : String{
+        fun getMultiAddress(device: Device?, scanAddress: String?) : String{
             var address = ""
-            while (true){
-                val number = (111111111 + Random().nextInt(255255254 - 11111111 + 1)).toString().chunked(3)
-                address = number.joinToString(separator = ".")
+            if(device != null && scanAddress != null){
+                val badAddresses = getBadMultiAddress(device).split("::")
+                val scanAddresses = scanAddress.split("::")
 
-                if (availableAddress.contains(address)){
-                    continue
+                if(!scanAddresses.contains(device.multicastAddress) && !badAddresses.contains(scanAddresses[0]) ){
+                    Log.d(TAG,"Generated address:  ${device.multicastAddress}")
+
+                    return device.multicastAddress
                 }else{
-                    availableAddress.add(address)
+                    while (true){
+                        address = addressGen()
+
+                        if (badAddresses.contains(address) && scanAddresses.contains(address)){
+                            continue
+                        }else{
+                            Log.d(TAG,"Generated address:  $address")
+                            device.copy(multicastAddress = address)
+                            return device.multicastAddress
+                        }
+                    }
+
+                }
+
+            }else{
+                return  addressGen()
+            }
+
+        }
+        private fun addressGen() : String {
+            val numberList = mutableListOf<String>()
+            var count = 0
+            while(true){
+                count += 1
+                if(count > 3){
                     break
                 }
+                var number = (1 + Random().nextInt(254 - 1)).toString()
+                if(number.length == 1){
+                    number = "00$number"
+                }else if(number.length == 2){
+                    number = "0$number"
+                }
+                numberList.add(number)
+
             }
-            Log.d(TAG,"Generated address:  $address")
+            return "230." + numberList.joinToString(separator = ".")
 
-            return availableAddress[-1]
-
+        }
+        fun getBadMultiAddress(device: Device) : String{
+            var addresses = device.multicastAddress
+            device.peers.forEach {peer ->
+                if(peer.multicastAddress.contains(".")){
+                    addresses += "::${peer.multicastAddress}"
+                }
+            }
+            return addresses
         }
 
         fun getPrivateKey() : PrivateKey{
@@ -126,11 +171,53 @@ open class Generator {
 
             Log.d(TAG," $pid,\n $pubKeyS")
 
-            if(pid.length < 6){
+            if(pid == "null"){
                 createKeys()
             }
         }
-    }
+        private fun getMacAddress() : String {
+            try {
+                val interfaces = NetworkInterface.getNetworkInterfaces().toList()
 
+                for (nif in interfaces){
+                    if(nif.name == "wlan0"){
+                        val macBytes = nif.hardwareAddress ?: return ""
+
+                        val res1 = StringBuffer()
+                        macBytes.forEach {
+                            res1.append(String.format("%02X:",it))
+                        }
+
+                        if(res1.isNotEmpty()){
+                            res1.deleteCharAt(res1.length - 1)
+                        }
+
+                        return res1.toString()
+                    }
+
+                }
+            }catch (e : Exception){ }
+            return "02:00:00:00:00:00:00"
+        }
+        fun getEncodedHash(file: File) : ByteArray{
+            val digest : MessageDigest = MessageDigest.getInstance("SHA-256")
+            val fileStream = FileInputStream(file)
+            val digestStream = DigestInputStream(fileStream,digest)
+            var readBuffer = ByteArray(1024*1024)
+
+            while(true){
+                if (digestStream.available() < 1024 * 1024) {
+                    if (digestStream.available() == 0) break
+                    readBuffer = ByteArray((digestStream.available().rem(1024 * 1024)))
+                }
+                if(digestStream.read(readBuffer,0,readBuffer.size) < 0) break
+            }
+
+            fileStream.close()
+            digestStream.close()
+            return digestStream.messageDigest.digest()
+
+        }
+    }
 
 }

@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.knexis.hotspot.Hotspot
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.*
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.fragments.FileFragment
 import ug.hix.hixnet2.meshlink.MeshServiceManager
@@ -19,9 +20,8 @@ import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.services.MeshDaemon
 import kotlin.concurrent.thread
 
-//import ug.hix.hixnet2.MeshDaemon
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private val SPLASH_TIMEOUT = 4000
     private lateinit var manager : WifiP2pManager
     private lateinit var channel : WifiP2pManager.Channel
@@ -31,12 +31,13 @@ class MainActivity : AppCompatActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
+        launch {
+            withContext(Dispatchers.IO){
+                Generator.getDatabaseInstance(this@MainActivity)
+                Generator.loadKeys()
+            }
 
-        thread{
-            Generator.getDatabaseInstance(this)
-            Generator.loadKeys()
         }
-
 
         Handler().postDelayed({
             val intent = Intent(this,HomeActivity::class.java)
@@ -45,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         }, SPLASH_TIMEOUT.toLong())
 
     }
-
 
 }
 

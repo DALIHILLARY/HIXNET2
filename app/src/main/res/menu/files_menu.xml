@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/fileOpen"
+          android:icon="@drawable/ic_open"
+          android:title="@string/open"
+    />
+    <item android:id="@+id/fileSend"
+          android:title="Send"
+          android:icon="@drawable/ic_send"
+          />
+    <item android:id="@+id/fileInfo"
+          android:icon="@drawable/ic_info"
+          android:title="@string/info"
+    />
     <item android:id="@+id/filesEdit"
           android:icon="@drawable/ic_edit"
-          android:title="Edit"/>
+          android:title="Rename"
+   />
     <item android:id="@+id/filesDelete"
           android:icon="@drawable/ic_delete"
           android:title="Remove"/>
