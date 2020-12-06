@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="ug.hix.hixnet2">
+          xmlns:tools="http://schemas.android.com/tools" package="ug.hix.hixnet2">
 
     <uses-permission
             android:name="android.permission.ACCESS_WIFI_STATE"
@@ -39,7 +39,8 @@
             android:roundIcon="@mipmap/ic_launcher_round"
             android:supportsRtl="true"
             android:theme="@style/AppTheme">
-        <activity android:name=".HomeActivity">
+        <activity android:name=".HomeActivity"
+                  android:launchMode="singleInstance">
         </activity>
         <activity android:name=".MainActivity">
             <intent-filter>

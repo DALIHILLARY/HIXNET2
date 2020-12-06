@@ -33,6 +33,6 @@ class FileViewModel : ViewModel() {
             .setInputData(workDataOf("filePaths" to filepaths))
             .build()
 
-        WorkManager.getInstance(mContext.applicationContext).enqueue(uploadWorker)
+        WorkManager.getInstance(mContext).enqueue(uploadWorker)
     }
 }

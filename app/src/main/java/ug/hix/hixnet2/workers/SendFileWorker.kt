@@ -21,8 +21,8 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
             val CID = inputData.getString("fileCID")
             val file = CID?.let { repo.getFileByCid(it) }!!
 
-//            Licklider(mContext).loadData(file,MeshDaemon.device.multicastAddress)
-            Licklider(mContext).loadData(file,"dguufggfufvueffdgerge4834yrtr")
+            Licklider(mContext).loadData(file,MeshDaemon.device.multicastAddress)
+//            Licklider(mContext).loadData(file,"dguufggfufvueffdgerge4834yrtr")
 
             Result.success()
 

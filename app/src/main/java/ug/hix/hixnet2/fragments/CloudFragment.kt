@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
 import ug.hix.hixnet2.R
 
 import kotlinx.android.synthetic.main.fragment_cloud.*
@@ -48,6 +49,11 @@ class CloudFragment(private val mContext: Context) : Fragment() {
                 return false
             }
         })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Glide.get(mContext).clearMemory()
     }
 
     companion object {

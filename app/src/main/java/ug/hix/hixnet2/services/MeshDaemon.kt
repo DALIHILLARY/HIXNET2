@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 
 import ug.hix.hixnet2.HomeActivity
@@ -91,13 +92,13 @@ class MeshDaemon : Service() {
                 .build()
 
 
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForeground(23256, notification)
-            }else{
-                with(NotificationManagerCompat.from(this)){
-                    notify(23256,notification)
-                }
-            }
+//            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForeground(23256, notification)
+//            }else{
+//                with(NotificationManagerCompat.from(this)){
+//                    notify(23256,notification)
+//                }*
+//            }
 
             cardManager.isWiFiEnabled()
 
@@ -108,8 +109,7 @@ class MeshDaemon : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
-        cardManager.removeGroup()
-        cardManager.unregisterCard()
+        cardManager.stop()
 
         thread {
             val netIds = repo.getAllWifiNetIds()
@@ -130,5 +130,18 @@ class MeshDaemon : Service() {
         lateinit var device : DeviceNode
         var filesHashMap = mutableMapOf<String,MutableMap<String,MutableList<String>>>()
 
+        fun startService( context: Context){
+            if(!isServiceRunning){
+                isServiceRunning = true
+                val startIntent = Intent(context, MeshDaemon::class.java)
+                ContextCompat.startForegroundService(context,startIntent)
+            }
+        }
+
+        fun stopService(context: Context){
+            isServiceRunning = false
+            val stopIntent = Intent(context, MeshDaemon::class.java)
+            context.stopService(stopIntent)
+        }
     }
 }

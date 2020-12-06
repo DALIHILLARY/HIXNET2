@@ -48,7 +48,7 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
     private val cm =      mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val mWifiConfig   = WifiConfiguration()
-    private val addConfig = AddConfigs()
+    private val addConfig = AddConfigs(mContext,repo)
     private val licklider = Licklider.start(mContext)
 
     private val SYNCTIME = 800L
@@ -69,7 +69,6 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
         override fun onReceive(context: Context, intent: Intent) {
             when(intent.action){
-
 
                 WifiManager.RSSI_CHANGED_ACTION -> {
                     val rssi = intent.getIntExtra(WifiManager.EXTRA_NEW_RSSI,1)
@@ -206,17 +205,17 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                     nonP2pHotspots.forEach{scanResult ->
 
                         if(!macList.contains(scanResult.BSSID)){
-                            val (netId,password) = addConfig.insertNonP2pConfig(mContext,scanResult)
+                          addConfig.insertNonP2pConfig(scanResult)
 
                             if(!firstDevice){
                                 firstDevice = true
-                                mWifiManager.enableNetwork(netId!!,true)
+//                                mWifiManager.enableNetwork(netId!!,true)
                                 mWifiManager.reconnect()
                             }
 //                            TODO("FIX CONN ADDrESS BUG IN NONP2P HOTSPOTS 4 INITIAL TRANSACTIONS")
-                            val wifiConfig = netId?.let { _netId -> WifiConfig(_netId,scanResult.SSID,scanResult.BSSID ,password,"")} as WifiConfig
-
-                            repo.addWifiConfig(wifiConfig)
+//                            val wifiConfig = netId?.let { _netId -> WifiConfig(_netId,scanResult.SSID,scanResult.BSSID ,password,"")} as WifiConfig
+//
+//                            repo.addWifiConfig(wifiConfig)
                         }
 
                     }
@@ -346,10 +345,13 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
         }
     }
-    fun unregisterCard(){
-        mContext.unregisterReceiver(wifiScanReceiver)
-        unregisterP2p()
+
+    fun stop(){
         isWifiRegistered = false
+        unregisterP2p()
+        mContext.unregisterReceiver(wifiScanReceiver)
+        removeGroup()
+
     }
 
     companion object{

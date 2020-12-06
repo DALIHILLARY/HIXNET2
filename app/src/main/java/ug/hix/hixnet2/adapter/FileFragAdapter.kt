@@ -15,6 +15,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import java.io.File as JFile
 import ug.hix.hixnet2.R
 import ug.hix.hixnet2.database.File
@@ -56,14 +57,22 @@ class FileFragAdapter(private val context: Context) : RecyclerView.Adapter<FileF
             fileModified.text = file.modified
 
             when(file.extension){
-                "pdf" -> Glide.with(context).load(R.drawable.pdf).fitCenter().into(fileIcon)
-                in listOf("xlsx","xls") -> Glide.with(context).load(R.drawable.excel).fitCenter().into(fileIcon)
-                in listOf("doc","docx") -> Glide.with(context).load(R.drawable.word).fitCenter().into(fileIcon)
-                in listOf("ppt","pptx") -> Glide.with(context).load(R.drawable.powerpoint).fitCenter().into(fileIcon)
-                "txt"  -> Glide.with(context).load(R.drawable.text).fitCenter().into(fileIcon)
-                "rar"  -> Glide.with(context).load(R.drawable.rar).fitCenter().into(fileIcon)
-                in listOf("zip","tar","tz") -> Glide.with(context).load(R.drawable.zip).fitCenter().into(fileIcon)
-                in listOf("mp4","jpg","mkv","3gp") ->  Glide.with(context).load(JFile(file.path)).fitCenter().centerCrop().into(fileIcon)
+                "pdf" -> Glide.with(context).load(R.drawable.pdf).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                in listOf("xlsx","xls") -> Glide.with(context).load(R.drawable.excel).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                in listOf("doc","docx") -> Glide.with(context).load(R.drawable.word).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                in listOf("ppt","pptx") -> Glide.with(context).load(R.drawable.powerpoint).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                "txt"  -> Glide.with(context).load(R.drawable.text).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                "rar"  -> Glide.with(context).load(R.drawable.rar).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                in listOf("zip","tar","tz") -> Glide.with(context).load(R.drawable.zip).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
+                in listOf("mp4","jpg","mkv","3gp") ->  Glide.with(context).load(JFile(file.path)).diskCacheStrategy(
+                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().centerCrop().into(fileIcon)
 
             }
             fileOptionsMenu.setOnClickListener {
@@ -79,7 +88,7 @@ class FileFragAdapter(private val context: Context) : RecyclerView.Adapter<FileF
                             val sendWorker = OneTimeWorkRequestBuilder<SendFileWorker>()
                                 .setInputData(workDataOf("fileCID" to fileCid))
                                 .build()
-                            WorkManager.getInstance(context.applicationContext).enqueue(sendWorker)
+                            WorkManager.getInstance(context).enqueue(sendWorker)
 
                         }
                         R.id.fileInfo -> {

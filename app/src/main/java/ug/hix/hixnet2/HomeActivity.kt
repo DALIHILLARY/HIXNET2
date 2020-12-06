@@ -1,7 +1,6 @@
 package ug.hix.hixnet2
 
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -18,11 +17,8 @@ import ug.hix.hixnet2.services.MeshDaemon
 
 import kotlinx.android.synthetic.main.activity_home.*
 import kotlinx.coroutines.*
-import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.fragments.CloudFragment
 import ug.hix.hixnet2.fragments.FileFragment
-import ug.hix.hixnet2.licklider.Licklider
-import ug.hix.hixnet2.models.TransFile
 import ug.hix.hixnet2.viewmodel.HomeViewModel
 
 class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
@@ -65,20 +61,13 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
             fabStart?.setOnClickListener {
                 if(System.currentTimeMillis() - fabLastClick >= 5000L){
                     fabLastClick = System.currentTimeMillis()
-                    val intent = Intent(this,MeshDaemon::class.java)
                     if(viewModel.isMyServiceRunning(this,MeshDaemon::class.java)){
-
-                        stopService(intent)
+                        MeshDaemon.stopService(this)
                         fabStart?.setImageResource(R.drawable.ic_start)
                         gray_out_home.visibility = VISIBLE
 
                     }else{
-                        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-                            startForegroundService(intent)
-                        }else{
-                            startService(intent)
-
-                        }
+                       MeshDaemon.startService(this)
                         fabStart?.setImageResource(R.drawable.ic_stop)
                         gray_out_home.visibility = GONE
                     }

@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.bumptech.glide.Glide
 import ug.hix.hixnet2.R
 import kotlinx.android.synthetic.main.fragment_files.*
 import droidninja.filepicker.*
@@ -115,9 +116,14 @@ class FileFragment(val mContext: Context) : Fragment() {
             }
         }
         if(mediaUri.isNotEmpty()){
-            fileViewModel.uploadFile(mediaUri,mContext.applicationContext)
+            fileViewModel.uploadFile(mediaUri,mContext)
 
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Glide.get(mContext).clearMemory()
     }
 
     companion object {

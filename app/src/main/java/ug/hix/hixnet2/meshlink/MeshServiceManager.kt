@@ -1,10 +1,8 @@
 package ug.hix.hixnet2.meshlink
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pInfo
@@ -13,18 +11,17 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
 
 import com.knexis.hotspot.Hotspot
 import kotlinx.coroutines.*
 
 import ug.hix.hixnet2.cyphers.Generator
-import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.AddConfigs
 import java.lang.Thread.sleep
+import kotlin.concurrent.thread
 
 
 open class MeshServiceManager(context : Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel) : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener {
@@ -36,10 +33,11 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
     private val TAG = javaClass.simpleName
     private val receiver = MeshBroadcastReceiver(this,manager,channel)
     private val scope = CoroutineScope(Dispatchers.Default)
-    private val addConfig = AddConfigs()
     val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     val device = MeshDaemon.device
     val repo = Repository(mContext)
+    private val addConfig = AddConfigs(mContext,repo)
+
 
     private var setResponders = false
     private var serviceKiller = false
@@ -130,13 +128,12 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
                         val scanAddresses = payload[1]
 
                         if(!macList.contains(connectInfo[1])){
-                            val netId = addConfig.insertP2pConfig(mContext,connectInfo)
+                            addConfig.insertP2pConfig(connectInfo)
                             if(device.multicastAddress == Generator.getMultiAddress(device,scanAddresses) && !connecting){
                                 connecting = true
                                 mWifiManager.reconnect()
                             }
-                            val wifiConfig = WifiConfig(netId,connectInfo[0],connectInfo[1],connectInfo[2],connectInfo[3])
-                            repo.addWifiConfig(wifiConfig)
+
                         }
                     }
 
@@ -304,7 +301,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
             if(!isServerRunning){
                 isServerRunning = true
                 //listen for command and join packets
-                GlobalScope.launch {
+                thread{
                     Licklider.start(mContext).receiver(device.multicastAddress)
 
                 }
@@ -357,6 +354,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
         manager.removeGroup(channel,object : WifiP2pManager.ActionListener{
             override fun onSuccess() {
                 isMaster = false
+                isServerRunning = false
             }
 
             override fun onFailure(reason: Int) {

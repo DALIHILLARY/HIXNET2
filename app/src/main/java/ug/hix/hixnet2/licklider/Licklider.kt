@@ -6,6 +6,7 @@ import android.util.Log
 import com.snatik.storage.Storage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.toByteString
@@ -39,46 +40,40 @@ class Licklider(private val mContext: Context){
         var isFile = false
         var packet = Packet()
         lateinit var buffer: ByteArray
-        packet = packet.copy(packetID = Generator.genMID())
-        packet = packet.copy(originalFromMeshID = Generator.getPID())
-        packet = packet.copy(toMeshID = toMeshId)
+        packet = packet.copy(packetID = Generator.genMID(),originalFromMeshID = Generator.getPID(),toMeshID = toMeshId)
+
         when (message) {
             is String -> {
-                packet = packet.copy(messageType = "COMMAND")
-                packet = packet.copy(port = 45345)
+                packet = packet.copy(messageType = "COMMAND",port = 45345)
                 buffer  = message.toByteArray()
 
             }
             is ACK -> {
-                packet = packet.copy(messageType = "ACK")
-                packet = packet.copy(port = 33456)
+                packet = packet.copy(messageType = "ACK",port = 33456)
                 buffer = ACK.ADAPTER.encode(message)
 
             }
             is FileHashMap -> {
-                packet = packet.copy(messageType = "filesUpdate")
-                packet = packet.copy(port = 33456)
+                packet = packet.copy(messageType = "filesUpdate",port = 33456)
                 buffer = FileHashMap.ADAPTER.encode(message)
             }
             is DeviceNode -> {
-                packet = packet.copy(messageType = "meshUpdate")
+                packet = packet.copy(messageType = "meshUpdate",port = 33456)
                 packet = packet.copy(port = 33456)
                 buffer  = DeviceNode.ADAPTER.encode(message)
 
             }
             is TransFile  -> {
-                packet = packet.copy(messageType = "FILE")
+                packet = packet.copy(messageType = "FILE",port = PORT)
                 buffer = TransFile.ADAPTER.encode(message)
                 packet = packet.copy(port = PORT)
-
 
 
             }
             is DFile -> {
                 isFile = true
                 val file = File(message.path)
-                packet = packet.copy(messageType = "FILE")
-                packet = packet.copy(port = PORT)
+                packet = packet.copy(messageType = "FILE",port = PORT)
                 splitter(mPacket = packet, file = file)
             }
         }
@@ -90,6 +85,8 @@ class Licklider(private val mContext: Context){
     private fun splitter(mPacket : Packet, buffer: ByteArray? = null, file: File? = null){
         var packet = mPacket
         val blockSize = 1200
+        val runtime = Runtime.getRuntime()
+//        val scope = CoroutineScope(Dispatchers.Default)
         val blockCount = if(file != null){
             ( file.length().toInt() + blockSize - 1) / blockSize
         }else{
@@ -99,24 +96,33 @@ class Licklider(private val mContext: Context){
 
             if(file != null){
                 var i = 1
-                var readBuffer = ByteArray(1200)
                 val fileStream = file.inputStream().buffered(1024 * 1024)
+                var readBuffer = ByteArray(1200)
+
                 while(true){
-                    val remBytes = fileStream.available()
-                    if( remBytes == 0) break
-                    if(remBytes < 1200){
-                        readBuffer = ByteArray(remBytes.rem(1200))
+                    if(runtime.freeMemory() >= 40000) {
+                        val remBytes = fileStream.available()
+                        if( remBytes == 0) break
+                        if(remBytes < 1200){
+                            readBuffer = ByteArray(remBytes.rem(1200))
+                        }
+                        fileStream.read(readBuffer,0,readBuffer.size)
+                        packet = packet.copy(offset = i,payload = readBuffer.toByteString())
+
+//                    scope.launch {
+//                        coroutineScope {
+//                            forward(packet)
+//
+//                        }
+//                    }
+                        runBlocking{
+                            forward(packet)
+                        }
+
+                        i++
+                    }else{
+                        Log.d("runn9ingOut", " I AM ALMOST DONE HERE")
                     }
-                    fileStream.read(readBuffer,0,readBuffer.size)
-                    packet = packet.copy(offset = i)
-                    packet = packet.copy(payload = readBuffer.toByteString())
-
-                    runBlocking{
-                        forward(packet)
-                    }
-
-
-                    i++
 
                 }
                 fileStream.close()
@@ -125,11 +131,16 @@ class Licklider(private val mContext: Context){
                 var i = 1
 
                 while(i < blockCount){
-                    packet = packet.copy(offset = i)
                     val idx = (i - 1) * blockSize
                     val range = buffer!!.copyOfRange(idx, idx + blockSize)
 
-                    packet = packet.copy(payload = range.toByteString())
+                    packet = packet.copy(payload = range.toByteString(),offset = i)
+//                    scope.launch {
+//                        coroutineScope {
+//                            forward(packet)
+//
+//                        }
+//                    }
                     runBlocking{
                         forward(packet)
                     }
@@ -146,9 +157,8 @@ class Licklider(private val mContext: Context){
                     buffer.size % blockSize + blockSize * (blockCount - 1)
                 }
 
-                packet = packet.copy(offset = blockCount)
                 val range = buffer.copyOfRange((blockCount - 1) * blockSize, end)
-                packet = packet.copy(payload = range.toByteString())
+                packet = packet.copy(payload = range.toByteString(),offset = blockCount)
 
                 runBlocking{
                     forward(packet)
@@ -183,6 +193,7 @@ class Licklider(private val mContext: Context){
 
             launch(Dispatchers.IO){
                 p2pSocket.joinGroup(InetSocketAddress(group,PORT),p2p0)
+
                 while(true){
                     val rBuffer = ByteArray(1500)
                     val packet = DatagramPacket(rBuffer, rBuffer.size)
@@ -204,19 +215,20 @@ class Licklider(private val mContext: Context){
                     }
                 }
             }
-            launch {
+            launch(Dispatchers.IO) {
                 while(true){
-                    if(!queueBuffer.isNullOrEmpty()){
+                    if(queueBuffer.isNotEmpty()){
                         queueBuffer.forEach { packet ->
-                            forward(packet)
                             coroutineLock.withLock {
                                 queueBuffer.remove(packet)
 
                             }
+                            forward(packet)
+
                             Log.d(TAG,"removed packet: $packet remaining buffer: $queueBuffer")
                         }
                     }
-                }
+                } 
             }
 
         }
@@ -227,11 +239,6 @@ class Licklider(private val mContext: Context){
         p2pSocket.leaveGroup(InetSocketAddress(group,PORT),p2p0)
         wlanSocket.leaveGroup(InetSocketAddress(group,PORT),wlan0)
     }
-    suspend fun enqueuePacket() {
-        coroutineLock.withLock {
-            //queueBuffer.add(packet)
-        }
-    }
 
     private suspend fun forward(mPacket: Packet){
         var packet = mPacket
@@ -240,8 +247,7 @@ class Licklider(private val mContext: Context){
         }else{
             getLink(packet.toMeshID)
         }
-        packet = packet.copy(fromMeshID = Generator.getPID())
-        packet = packet.copy(timeToLive = 4)
+        packet = packet.copy(fromMeshID = Generator.getPID(),timeToLive = 4)
         val data = Packet.ADAPTER.encode(packet)
         val port = packet.port
 
@@ -269,7 +275,6 @@ class Licklider(private val mContext: Context){
                 queueBuffer.add(packet)
             }
         }
-        Log.d(TAG,"QUEUBUFFER: $queueBuffer")
     }
 
     private fun getLink(meshId : String) : String? {
@@ -367,8 +372,14 @@ class Licklider(private val mContext: Context){
                     }
                     "FILE" -> {
                         // to be implemented later
-                        val storage = Storage(appContext)
-                        storage.createFile(storage.externalStorageDirectory +"/HixNet/${packet.offset}.txt",packet.toString())
+                        runBlocking {
+                            val storage = Storage(appContext)
+                            if(!storage.isDirectoryExists(storage.externalStorageDirectory +"HixNet/.${packet.packetID}")){
+                                storage.createDirectory(storage.externalStorageDirectory +"HixNet/.${packet.packetID}")
+                            }
+                            storage.createFile(storage.externalStorageDirectory +"/HixNet/.${packet.packetID}/${packet.offset}.prt",packet.payload.toByteArray())
+//                            mergeChannel.send(packet.packetID)
+                        }
 
                     }
                     else -> {
@@ -512,6 +523,8 @@ class Licklider(private val mContext: Context){
         private val p2p0 = NetworkInterface.getByName("p2p0")
         private val wlan0 = NetworkInterface.getByName("wlan0")
 
+        val mergeChannel = Channel<String>(20)
+
         @JvmStatic private var primaryBuffers = mutableListOf<Packet>()
         @JvmStatic  private var queueBuffer = mutableListOf<Packet>()
 
@@ -537,6 +550,16 @@ class Licklider(private val mContext: Context){
 
             }catch (e : Exception){
                 e.printStackTrace()
+            }
+
+        }
+        fun assembler(){
+            //This function receives packets and merges them together
+            runBlocking {
+//                val packetIDs =
+//                for (packetId in mergeChannel){
+//
+//                }
             }
 
         }
