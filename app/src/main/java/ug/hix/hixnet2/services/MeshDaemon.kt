@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleService
 import kotlinx.coroutines.Dispatchers
 
 import ug.hix.hixnet2.HomeActivity
@@ -22,7 +23,7 @@ import ug.hix.hixnet2.util.NotifyChannel
 import java.util.jar.Attributes
 import kotlin.concurrent.thread
 
-class MeshDaemon : Service() {
+class MeshDaemon : LifecycleService() {
     private lateinit var cardManager : NetworkCardManager
     private lateinit var manager : WifiP2pManager
     private lateinit var channel : WifiP2pManager.Channel
@@ -72,6 +73,7 @@ class MeshDaemon : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
         thread {
             isServiceRunning = true
 
@@ -120,10 +122,6 @@ class MeshDaemon : Service() {
 
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-
-        return null
-    }
 
     companion object {
         var isServiceRunning = false

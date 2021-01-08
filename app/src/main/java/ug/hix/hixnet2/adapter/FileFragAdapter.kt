@@ -10,6 +10,8 @@ import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.view.menu.MenuPopupHelper
+import androidx.recyclerview.widget.AsyncListDiffer
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -23,6 +25,25 @@ import ug.hix.hixnet2.workers.SendFileWorker
 
 class FileFragAdapter(private val context: Context) : RecyclerView.Adapter<FileFragAdapter.FileFragViewHolder>() {
     private var fileSet = listOf<File>()
+    private val diffCallback = object : DiffUtil.Callback() {
+        override fun getOldListSize(): Int {
+            TODO("Not yet implemented")
+        }
+
+        override fun getNewListSize(): Int {
+            TODO("Not yet implemented")
+        }
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            TODO("Not yet implemented")
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            TODO("Not yet implemented")
+        }
+
+    }
+//    private val mDiffer = AsyncListDiffer<File>(this,diffCallback)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FileFragViewHolder {
         val v = LayoutInflater.from(parent.context)
@@ -95,6 +116,7 @@ class FileFragAdapter(private val context: Context) : RecyclerView.Adapter<FileF
 //                            TODO("Open an activity showing info")
                         }
                         R.id.filesDelete -> {
+
 //                            TODO("Delete file from Database)
                         }
                         R.id.filesEdit -> {

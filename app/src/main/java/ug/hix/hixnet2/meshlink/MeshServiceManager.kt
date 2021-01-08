@@ -301,10 +301,9 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
             if(!isServerRunning){
                 isServerRunning = true
                 //listen for command and join packets
-                thread{
-                    Licklider.start(mContext).receiver(device.multicastAddress)
 
-                }
+//                Licklider.start(mContext).receiver(device.multicastAddress)
+
             }
         }
     }
@@ -339,6 +338,8 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
 
                 passPhrase = group.passphrase
                 BSSID   = device.macAddress
+
+                Licklider.start(mContext).receiver(device.multicastAddress)
 
                 registerService()
             }

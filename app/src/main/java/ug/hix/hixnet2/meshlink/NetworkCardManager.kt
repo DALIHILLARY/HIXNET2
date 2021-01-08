@@ -16,9 +16,6 @@ import com.knexis.hotspot.Hotspot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import ug.hix.hixnet2.database.WifiConfig
-import ug.hix.hixnet2.database.HixNetDatabase
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.util.AddConfigs
 import java.lang.Thread.sleep

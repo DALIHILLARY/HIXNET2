@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools" package="ug.hix.hixnet2">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="ug.hix.hixnet2">
 
     <uses-permission
             android:name="android.permission.ACCESS_WIFI_STATE"
@@ -11,7 +12,6 @@
     <uses-permission
             android:name="android.permission.ACCESS_FINE_LOCATION"
             android:required="true"/>
-
     <uses-permission
             android:name="android.permission.INTERNET"
             android:required="true"/>
@@ -23,24 +23,30 @@
             android:required="true"/>
     <uses-permission
             android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"
-            android:required = "true"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-            android:required = "true"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-            android:required = "true"/>
-    <uses-permission android:name="android.permission.STORAGE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+            android:required="true"/>
+    <uses-permission
+            android:name="android.permission.READ_EXTERNAL_STORAGE"
+            android:required="true"/>
+    <uses-permission
+            android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+            android:required="true"/>
+    <uses-permission android:name="android.permission.STORAGE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
             android:allowBackup="true"
             android:icon="@drawable/spider"
             android:label="@string/app_name"
+            android:requestLegacyExternalStorage="true"
             android:roundIcon="@mipmap/ic_launcher_round"
             android:supportsRtl="true"
-            android:theme="@style/AppTheme">
-        <activity android:name=".HomeActivity"
-                  android:launchMode="singleInstance">
+            android:theme="@style/AppTheme"
+            tools:targetApi="q">
+
+        <activity
+                android:name=".HomeActivity"
+                android:launchMode="singleInstance">
         </activity>
         <activity android:name=".MainActivity">
             <intent-filter>
@@ -51,6 +57,8 @@
         </activity>
 
         <service android:name=".services.MeshDaemon"/>
+        <service android:name="androidx.work.impl.foreground.SystemForegroundService"
+                 tools:node="merge"/>
     </application>
 
 </manifest>
