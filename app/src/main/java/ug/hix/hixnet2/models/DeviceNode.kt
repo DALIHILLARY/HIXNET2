@@ -38,39 +38,57 @@ class DeviceNode(
     tag = 3,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  val macAddress: String = "",
+  val publicKey: String = "",
   @field:WireField(
     tag = 4,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val macAddress: String = "",
+  @field:WireField(
+    tag = 5,
     adapter = "ug.hix.hixnet2.models.DeviceNode#ADAPTER",
     label = WireField.Label.REPEATED
   )
   val peers: List<DeviceNode> = emptyList(),
   @field:WireField(
-    tag = 5,
+    tag = 6,
     adapter = "ug.hix.hixnet2.models.Service#ADAPTER",
     label = WireField.Label.REPEATED
   )
   val services: List<Service> = emptyList(),
   @field:WireField(
-    tag = 6,
+    tag = 7,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
   val Hops: Int = 0,
   @field:WireField(
-    tag = 7,
+    tag = 8,
     adapter = "com.squareup.wire.ProtoAdapter#BOOL"
   )
   val hasInternetWifi: Boolean = false,
   @field:WireField(
-    tag = 8,
-    adapter = "com.squareup.wire.ProtoAdapter#STRING"
-  )
-  val deviceName: String = "",
-  @field:WireField(
     tag = 9,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  val instanceName: String = "",
+  val wifi: String = "",
+  @field:WireField(
+    tag = 10,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val passPhrase: String = "",
+  @field:WireField(
+    tag = 11,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val version: String = "",
+  /**
+   * ACTIVE / DISCONNECTED
+   */
+  @field:WireField(
+    tag = 12,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val status: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<DeviceNode, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -85,13 +103,16 @@ class DeviceNode(
     return unknownFields == other.unknownFields
         && meshID == other.meshID
         && multicastAddress == other.multicastAddress
+        && publicKey == other.publicKey
         && macAddress == other.macAddress
         && peers == other.peers
         && services == other.services
         && Hops == other.Hops
         && hasInternetWifi == other.hasInternetWifi
-        && deviceName == other.deviceName
-        && instanceName == other.instanceName
+        && wifi == other.wifi
+        && passPhrase == other.passPhrase
+        && version == other.version
+        && status == other.status
   }
 
   override fun hashCode(): Int {
@@ -100,13 +121,16 @@ class DeviceNode(
       result = unknownFields.hashCode()
       result = result * 37 + meshID.hashCode()
       result = result * 37 + multicastAddress.hashCode()
+      result = result * 37 + publicKey.hashCode()
       result = result * 37 + macAddress.hashCode()
       result = result * 37 + peers.hashCode()
       result = result * 37 + services.hashCode()
       result = result * 37 + Hops.hashCode()
       result = result * 37 + hasInternetWifi.hashCode()
-      result = result * 37 + deviceName.hashCode()
-      result = result * 37 + instanceName.hashCode()
+      result = result * 37 + wifi.hashCode()
+      result = result * 37 + passPhrase.hashCode()
+      result = result * 37 + version.hashCode()
+      result = result * 37 + status.hashCode()
       super.hashCode = result
     }
     return result
@@ -116,29 +140,35 @@ class DeviceNode(
     val result = mutableListOf<String>()
     result += """meshID=${sanitize(meshID)}"""
     result += """multicastAddress=${sanitize(multicastAddress)}"""
+    result += """publicKey=${sanitize(publicKey)}"""
     result += """macAddress=${sanitize(macAddress)}"""
     if (peers.isNotEmpty()) result += """peers=$peers"""
     if (services.isNotEmpty()) result += """services=$services"""
     result += """Hops=$Hops"""
     result += """hasInternetWifi=$hasInternetWifi"""
-    result += """deviceName=${sanitize(deviceName)}"""
-    result += """instanceName=${sanitize(instanceName)}"""
+    result += """wifi=${sanitize(wifi)}"""
+    result += """passPhrase=${sanitize(passPhrase)}"""
+    result += """version=${sanitize(version)}"""
+    result += """status=${sanitize(status)}"""
     return result.joinToString(prefix = "DeviceNode{", separator = ", ", postfix = "}")
   }
 
   fun copy(
     meshID: String = this.meshID,
     multicastAddress: String = this.multicastAddress,
+    publicKey: String = this.publicKey,
     macAddress: String = this.macAddress,
     peers: List<DeviceNode> = this.peers,
     services: List<Service> = this.services,
     Hops: Int = this.Hops,
     hasInternetWifi: Boolean = this.hasInternetWifi,
-    deviceName: String = this.deviceName,
-    instanceName: String = this.instanceName,
+    wifi: String = this.wifi,
+    passPhrase: String = this.passPhrase,
+    version: String = this.version,
+    status: String = this.status,
     unknownFields: ByteString = this.unknownFields
-  ): DeviceNode = DeviceNode(meshID, multicastAddress, macAddress, peers, services, Hops,
-      hasInternetWifi, deviceName, instanceName, unknownFields)
+  ): DeviceNode = DeviceNode(meshID, multicastAddress, publicKey, macAddress, peers, services, Hops,
+      hasInternetWifi, wifi, passPhrase, version, status, unknownFields)
 
   companion object {
     @JvmField
@@ -150,65 +180,79 @@ class DeviceNode(
       override fun encodedSize(value: DeviceNode): Int = 
         ProtoAdapter.STRING.encodedSizeWithTag(1, value.meshID) +
         ProtoAdapter.STRING.encodedSizeWithTag(2, value.multicastAddress) +
-        ProtoAdapter.STRING.encodedSizeWithTag(3, value.macAddress) +
-        DeviceNode.ADAPTER.asRepeated().encodedSizeWithTag(4, value.peers) +
-        Service.ADAPTER.asRepeated().encodedSizeWithTag(5, value.services) +
-        ProtoAdapter.INT32.encodedSizeWithTag(6, value.Hops) +
-        ProtoAdapter.BOOL.encodedSizeWithTag(7, value.hasInternetWifi) +
-        ProtoAdapter.STRING.encodedSizeWithTag(8, value.deviceName) +
-        ProtoAdapter.STRING.encodedSizeWithTag(9, value.instanceName) +
+        ProtoAdapter.STRING.encodedSizeWithTag(3, value.publicKey) +
+        ProtoAdapter.STRING.encodedSizeWithTag(4, value.macAddress) +
+        DeviceNode.ADAPTER.asRepeated().encodedSizeWithTag(5, value.peers) +
+        Service.ADAPTER.asRepeated().encodedSizeWithTag(6, value.services) +
+        ProtoAdapter.INT32.encodedSizeWithTag(7, value.Hops) +
+        ProtoAdapter.BOOL.encodedSizeWithTag(8, value.hasInternetWifi) +
+        ProtoAdapter.STRING.encodedSizeWithTag(9, value.wifi) +
+        ProtoAdapter.STRING.encodedSizeWithTag(10, value.passPhrase) +
+        ProtoAdapter.STRING.encodedSizeWithTag(11, value.version) +
+        ProtoAdapter.STRING.encodedSizeWithTag(12, value.status) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: DeviceNode) {
         if (value.meshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 1, value.meshID)
         if (value.multicastAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 2,
             value.multicastAddress)
-        if (value.macAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.macAddress)
-        DeviceNode.ADAPTER.asRepeated().encodeWithTag(writer, 4, value.peers)
-        Service.ADAPTER.asRepeated().encodeWithTag(writer, 5, value.services)
-        if (value.Hops != 0) ProtoAdapter.INT32.encodeWithTag(writer, 6, value.Hops)
-        if (value.hasInternetWifi != false) ProtoAdapter.BOOL.encodeWithTag(writer, 7,
+        if (value.publicKey != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.publicKey)
+        if (value.macAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 4, value.macAddress)
+        DeviceNode.ADAPTER.asRepeated().encodeWithTag(writer, 5, value.peers)
+        Service.ADAPTER.asRepeated().encodeWithTag(writer, 6, value.services)
+        if (value.Hops != 0) ProtoAdapter.INT32.encodeWithTag(writer, 7, value.Hops)
+        if (value.hasInternetWifi != false) ProtoAdapter.BOOL.encodeWithTag(writer, 8,
             value.hasInternetWifi)
-        if (value.deviceName != "") ProtoAdapter.STRING.encodeWithTag(writer, 8, value.deviceName)
-        if (value.instanceName != "") ProtoAdapter.STRING.encodeWithTag(writer, 9,
-            value.instanceName)
+        if (value.wifi != "") ProtoAdapter.STRING.encodeWithTag(writer, 9, value.wifi)
+        if (value.passPhrase != "") ProtoAdapter.STRING.encodeWithTag(writer, 10, value.passPhrase)
+        if (value.version != "") ProtoAdapter.STRING.encodeWithTag(writer, 11, value.version)
+        if (value.status != "") ProtoAdapter.STRING.encodeWithTag(writer, 12, value.status)
         writer.writeBytes(value.unknownFields)
       }
 
       override fun decode(reader: ProtoReader): DeviceNode {
         var meshID: String = ""
         var multicastAddress: String = ""
+        var publicKey: String = ""
         var macAddress: String = ""
         val peers = mutableListOf<DeviceNode>()
         val services = mutableListOf<Service>()
         var Hops: Int = 0
         var hasInternetWifi: Boolean = false
-        var deviceName: String = ""
-        var instanceName: String = ""
+        var wifi: String = ""
+        var passPhrase: String = ""
+        var version: String = ""
+        var status: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> meshID = ProtoAdapter.STRING.decode(reader)
             2 -> multicastAddress = ProtoAdapter.STRING.decode(reader)
-            3 -> macAddress = ProtoAdapter.STRING.decode(reader)
-            4 -> peers.add(DeviceNode.ADAPTER.decode(reader))
-            5 -> services.add(Service.ADAPTER.decode(reader))
-            6 -> Hops = ProtoAdapter.INT32.decode(reader)
-            7 -> hasInternetWifi = ProtoAdapter.BOOL.decode(reader)
-            8 -> deviceName = ProtoAdapter.STRING.decode(reader)
-            9 -> instanceName = ProtoAdapter.STRING.decode(reader)
+            3 -> publicKey = ProtoAdapter.STRING.decode(reader)
+            4 -> macAddress = ProtoAdapter.STRING.decode(reader)
+            5 -> peers.add(DeviceNode.ADAPTER.decode(reader))
+            6 -> services.add(Service.ADAPTER.decode(reader))
+            7 -> Hops = ProtoAdapter.INT32.decode(reader)
+            8 -> hasInternetWifi = ProtoAdapter.BOOL.decode(reader)
+            9 -> wifi = ProtoAdapter.STRING.decode(reader)
+            10 -> passPhrase = ProtoAdapter.STRING.decode(reader)
+            11 -> version = ProtoAdapter.STRING.decode(reader)
+            12 -> status = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
         return DeviceNode(
           meshID = meshID,
           multicastAddress = multicastAddress,
+          publicKey = publicKey,
           macAddress = macAddress,
           peers = peers,
           services = services,
           Hops = Hops,
           hasInternetWifi = hasInternetWifi,
-          deviceName = deviceName,
-          instanceName = instanceName,
+          wifi = wifi,
+          passPhrase = passPhrase,
+          version = version,
+          status = status,
           unknownFields = unknownFields
         )
       }

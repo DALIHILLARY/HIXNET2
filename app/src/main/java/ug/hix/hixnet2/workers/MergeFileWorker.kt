@@ -29,14 +29,13 @@ class MergeFileWorker(private val mContext: Context, params: WorkerParameters) :
             val fileDir = inputData.getString("fileDir")
             val expected = storage.getFiles(fileDir).count() - 1
             setForeground(createForegroundInfo())
-            delay(2000L)
             appendFile(fileDir!!,expected,storage)
             val filepath = "$fileDir/${storage.readTextFile("$fileDir/fileName.txt")}".split(":::").first()
             while(true){
-                if(storage.rename("$fileDir/1.prt",filepath)) break;
+                if(storage.rename("$fileDir/1.prt",filepath)) break
             }
             while(true)
-                if (storage.deleteFile("$fileDir/fileName.txt")) break;
+                if (storage.deleteFile("$fileDir/fileName.txt")) break
             moveFile(storage, fileDir,filepath)
             Result.success()
         }catch (e: Exception){
@@ -50,10 +49,10 @@ class MergeFileWorker(private val mContext: Context, params: WorkerParameters) :
             val stream = FileOutputStream(File("$fileDir/1.prt"),true)
             var counter = 2
             while (true){
-                if(counter > expected) break;
+                if(counter > expected) break
                 stream.write(storage.readFile("$fileDir/$counter.prt"))
                 while(true)
-                    if (storage.deleteFile("$fileDir/$counter.prt")) break;
+                    if (storage.deleteFile("$fileDir/$counter.prt")) break
                 counter +=1
             }
             stream.flush()

@@ -30,6 +30,11 @@ class FileHashMap(
     label = WireField.Label.REPEATED
   )
   val cids: List<CID> = emptyList(),
+  @field:WireField(
+    tag = 2,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val operation: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<FileHashMap, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -43,6 +48,7 @@ class FileHashMap(
     if (other !is FileHashMap) return false
     return unknownFields == other.unknownFields
         && cids == other.cids
+        && operation == other.operation
   }
 
   override fun hashCode(): Int {
@@ -50,6 +56,7 @@ class FileHashMap(
     if (result == 0) {
       result = unknownFields.hashCode()
       result = result * 37 + cids.hashCode()
+      result = result * 37 + operation.hashCode()
       super.hashCode = result
     }
     return result
@@ -58,11 +65,15 @@ class FileHashMap(
   override fun toString(): String {
     val result = mutableListOf<String>()
     if (cids.isNotEmpty()) result += """cids=$cids"""
+    result += """operation=${sanitize(operation)}"""
     return result.joinToString(prefix = "FileHashMap{", separator = ", ", postfix = "}")
   }
 
-  fun copy(cids: List<CID> = this.cids, unknownFields: ByteString = this.unknownFields): FileHashMap
-      = FileHashMap(cids, unknownFields)
+  fun copy(
+    cids: List<CID> = this.cids,
+    operation: String = this.operation,
+    unknownFields: ByteString = this.unknownFields
+  ): FileHashMap = FileHashMap(cids, operation, unknownFields)
 
   companion object {
     @JvmField
@@ -73,23 +84,28 @@ class FileHashMap(
     ) {
       override fun encodedSize(value: FileHashMap): Int = 
         CID.ADAPTER.asRepeated().encodedSizeWithTag(1, value.cids) +
+        ProtoAdapter.STRING.encodedSizeWithTag(2, value.operation) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: FileHashMap) {
         CID.ADAPTER.asRepeated().encodeWithTag(writer, 1, value.cids)
+        if (value.operation != "") ProtoAdapter.STRING.encodeWithTag(writer, 2, value.operation)
         writer.writeBytes(value.unknownFields)
       }
 
       override fun decode(reader: ProtoReader): FileHashMap {
         val cids = mutableListOf<CID>()
+        var operation: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> cids.add(CID.ADAPTER.decode(reader))
+            2 -> operation = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
         return FileHashMap(
           cids = cids,
+          operation = operation,
           unknownFields = unknownFields
         )
       }

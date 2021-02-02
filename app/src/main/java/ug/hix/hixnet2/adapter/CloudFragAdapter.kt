@@ -36,20 +36,20 @@ class CloudFragAdapter(private val mContext: Context) : RecyclerView.Adapter<Clo
             cloudModified.text = properties["Date"]!![0]
             cloudSize.text = properties["Size"]!![0]
 
-            when(properties["Extension"]!![0]){
-                "pdf" -> Glide.with(mContext).load(R.drawable.pdf).diskCacheStrategy(
+            when(properties["Extension"]!![0].toLowerCase()){
+                "pdf" -> Glide.with(mContext.applicationContext).load(R.drawable.pdf).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("xlsx","xls") -> Glide.with(mContext).load(R.drawable.excel).diskCacheStrategy(
+                in listOf("xlsx","xls") -> Glide.with(mContext.applicationContext).load(R.drawable.excel).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).into(cloudIcon)
-                in listOf("doc","docx") -> Glide.with(mContext).load(R.drawable.word).diskCacheStrategy(
+                in listOf("doc","docx") -> Glide.with(mContext.applicationContext).load(R.drawable.word).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("ppt","pptx") -> Glide.with(mContext).load(R.drawable.powerpoint).diskCacheStrategy(
+                in listOf("ppt","pptx") -> Glide.with(mContext.applicationContext).load(R.drawable.powerpoint).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                "txt"  -> Glide.with(mContext).load(R.drawable.text).diskCacheStrategy(
+                "txt"  -> Glide.with(mContext.applicationContext).load(R.drawable.text).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                "rar"  -> Glide.with(mContext).load(R.drawable.rar).diskCacheStrategy(
+                "rar"  -> Glide.with(mContext.applicationContext).load(R.drawable.rar).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("zip","tar","tz") -> Glide.with(mContext).load(R.drawable.zip).diskCacheStrategy(
+                in listOf("zip","tar","tz") -> Glide.with(mContext.applicationContext).load(R.drawable.zip).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
             }
         }

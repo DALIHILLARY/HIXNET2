@@ -71,7 +71,7 @@ class FileFragment(val mContext: Context) : Fragment() {
         fileViewModel = ViewModelProvider(this).get(FileViewModel::class.java)
         fileViewModel.getFiles(mContext).observe(viewLifecycleOwner,
             Observer<List<File>> {
-                fileAdapter.setFiles(it)
+                fileAdapter.submitList(it)
             })
 
         val zipTypes = arrayOf("zip","rar","apk","tar","tz")
@@ -110,7 +110,7 @@ class FileFragment(val mContext: Context) : Fragment() {
                         mediaUri.addAll(
                             it
                         )
-                    };
+                    }
 
                 }
             }

@@ -5,13 +5,16 @@ package ug.hix.hixnet2.models;
 message DeviceNode{
     string meshID  = 1;
     string multicastAddress = 2;
-    string macAddress  = 3;
-    repeated DeviceNode peers = 4;
-    repeated Service services = 5;
-    int32 Hops = 6;
-    bool  hasInternetWifi = 7;
-    string deviceName = 8;
-    string instanceName = 9;
+    string publicKey = 3;
+    string macAddress  = 4;
+    repeated DeviceNode peers = 5;
+    repeated Service services = 6;
+    int32 Hops = 7;
+    bool  hasInternetWifi = 8;
+    string wifi = 9;
+    string passPhrase = 10;
+    string version = 11;
+    string status = 12; //ACTIVE / DISCONNECTED
 
 }
 
@@ -26,6 +29,7 @@ message TransFile{
     bytes  fileContent = 3;
 }
 message FileHashMap{
+
     message Attributes{
         string key = 1;
         repeated string value = 2;
@@ -35,6 +39,7 @@ message FileHashMap{
        repeated Attributes attributes = 2;
     }
     repeated CID cids = 1;
+    string operation = 2;
 
 }
 

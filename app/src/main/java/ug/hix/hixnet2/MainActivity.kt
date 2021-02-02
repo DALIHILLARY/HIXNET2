@@ -31,12 +31,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
-        launch {
-            withContext(Dispatchers.IO){
-                Generator.getDatabaseInstance(this@MainActivity)
-                Generator.loadKeys()
-            }
 
+        runBlocking(Dispatchers.IO){
+            Generator.getDatabaseInstance(this@MainActivity)
+            Generator.loadKeys()
         }
 
         Handler().postDelayed({

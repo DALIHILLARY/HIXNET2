@@ -3,11 +3,13 @@ package ug.hix.hixnet2.workers
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.snatik.storage.Storage
 import ug.hix.hixnet2.R
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.repository.Repository
@@ -23,13 +25,23 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
             val repo = Repository(applicationContext)
             val CID = inputData.getString("fileCID")
             val toMeshId = inputData.getString("fromMeshId")
-            val expectedOffsets = inputData.getIntArray("offsets")
+            val expectedOffsets = inputData.getString("offsets")
             val file = CID?.let { repo.getFileByCid(it) }!!
             setForeground(createForegroundInfo())
             if(expectedOffsets == null){
-                Licklider(mContext).loadData(file,toMeshId!!)
+                Licklider(mContext).loadData(file, toMeshId!!)
             }else{
-                Licklider(mContext).loadData(file,expectedOffsets.toList())
+                val storage = Storage(mContext)
+                val cacheDir = mContext.externalCacheDir?.absolutePath
+                val offsets = storage.readTextFile("$cacheDir/Acks/${expectedOffsets}.ch")
+                    .split(",")
+                    .map {
+                            it.dropWhile { char ->
+                                char.isWhitespace()
+                            }.toInt()
+                    }
+                storage.deleteFile("$cacheDir/Acks/${expectedOffsets}.ch")
+                Licklider(mContext).loadData(file,offsets,toMeshId!!)
             }
 
 //            Licklider(mContext).loadData(file,"dguufggfufvueffdgerge4834yrtr")

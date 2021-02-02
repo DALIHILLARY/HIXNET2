@@ -18,10 +18,10 @@ abstract class HixNetDatabase : RoomDatabase() {
 
     companion object {
         private var instance : HixNetDatabase? = null
-
         @Synchronized fun  dbInstance(context: Context) : HixNetDatabase {
             if(instance == null){
-                instance  = Room.databaseBuilder(context.applicationContext, HixNetDatabase::class.java, "hixNetDB").build()
+                instance  = Room.databaseBuilder(context.applicationContext, HixNetDatabase::class.java, "hixNetDB.db")
+                    .build()
 
             }
             return instance as HixNetDatabase

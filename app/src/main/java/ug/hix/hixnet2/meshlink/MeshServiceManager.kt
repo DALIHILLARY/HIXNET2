@@ -88,7 +88,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
             override fun onSuccess() {
                 Toast.makeText(mContext,instanceName,Toast.LENGTH_LONG).show()
 
-                Log.d(TAG,"Service Started successfully")
+//                Log.d(TAG,"Service Started successfully")
             }
 
             override fun onFailure(reason: Int) {
@@ -197,19 +197,19 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
                     return
                 }
 
-                Log.d(TAG,"successfully removed service request")
+//                Log.d(TAG,"successfully removed service request")
 
                 manager.addServiceRequest(channel,serviceRequest, object : WifiP2pManager.ActionListener {
                     override fun onSuccess() {
 
-                        Log.d(TAG,"Service request successfully added")
+//                        Log.d(TAG,"Service request successfully added")
 
                         manager.discoverServices(
                             channel,
                             object : WifiP2pManager.ActionListener {
                                 override fun onSuccess() {
                                     isDiscovering = true
-                                    Log.d(TAG,"serviceDiscover initiated")
+//                                    Log.d(TAG,"serviceDiscover initiated")
                                 }
 
                                 override fun onFailure(code: Int) {
@@ -281,11 +281,11 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
     private fun deactivateService(){
         manager.clearLocalServices(channel, object : WifiP2pManager.ActionListener{
             override fun onSuccess() {
-                Log.d(TAG, "Local service removed successfully")
+//                Log.d(TAG, "Local service removed successfully")
             }
 
             override fun onFailure(reason: Int) {
-                Log.d(TAG, "Failed to remove service")
+                Log.e(TAG, "Failed to remove service")
             }
 
         })
@@ -330,11 +330,12 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
         })
     }
 
+    @ExperimentalCoroutinesApi
     override fun onGroupInfoAvailable(group: WifiP2pGroup?) {
         if(group != null){
             if(group.isGroupOwner){
                 SSID = group.networkName
-                device.copy(instanceName = SSID)
+//                device.copy(instanceName = SSID)
 
                 passPhrase = group.passphrase
                 BSSID   = device.macAddress
