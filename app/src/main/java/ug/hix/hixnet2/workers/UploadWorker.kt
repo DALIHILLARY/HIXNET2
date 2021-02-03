@@ -5,9 +5,7 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 import ug.hix.hixnet2.cyphers.Generator
-import ug.hix.hixnet2.models.FileHashMap
 import ug.hix.hixnet2.repository.Repository
-import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.Base58
 import ug.hix.hixnet2.util.Util
 import java.io.File
@@ -32,7 +30,7 @@ class UploadWorker(appContext: Context, workerParams: WorkerParameters) : Worker
 
                 if(CID !in CIDs) {
                     val fileObj = ug.hix.hixnet2.database.File(CID = CID,path = filepath, size = size, cloudName = name, extension = extension, modified = currentDate, mesh_modified = currentDate)
-                    repo.insertFile(fileObj)
+                    repo.insertOrUpdateFile(fileObj)
 
 //                    val fileAttribute = mutableMapOf<String, MutableList<String>>()
 //                    fileAttribute["Name"] = mutableListOf(fileObj.cloudName)

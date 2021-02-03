@@ -11,11 +11,6 @@ import androidx.room.ForeignKey
             parentColumns = ["CID"],
             childColumns = ["CID"],
             onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = DeviceNode::class,
-            parentColumns = ["meshID"],
-            childColumns = ["meshID"]
         )
     ]
 )

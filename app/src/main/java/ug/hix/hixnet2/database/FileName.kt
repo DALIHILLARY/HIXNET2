@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 
 @Entity(
-    primaryKeys = ["CID","name_id"],
+    primaryKeys = ["CID","name_slub"],
     foreignKeys = [
         ForeignKey(
             entity = File::class,
@@ -13,12 +13,12 @@ import androidx.room.ForeignKey
         ),
         ForeignKey(
             entity = Name::class,
-            parentColumns = ["name_id"],
-            childColumns = ["name_id"]
+            parentColumns = ["name_slub"],
+            childColumns = ["name_slub"]
         )
     ]
 )
 data class FileName (
     val CID : String,
-    val name_id : String
+    val name_slub : String
 )

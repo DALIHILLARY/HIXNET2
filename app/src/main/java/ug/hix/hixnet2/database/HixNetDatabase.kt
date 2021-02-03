@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [WifiConfig::class,DeviceNode::class,File::class,Services::class], version = 1, exportSchema = false)
+@Database(entities = [WifiConfig::class,DeviceNode::class,File::class,Name::class,FileName::class,FileSeeder::class,Services::class], version = 1, exportSchema = false)
 @TypeConverters(ServiceConverter::class)
 
 abstract class HixNetDatabase : RoomDatabase() {

@@ -113,7 +113,7 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
 
                             if(conSSID.startsWith("DIRECT") || conSSID.startsWith("HIXNET")){
                                 var address = device.peers.find { peer ->
-                                    peer.instanceName == conSSID
+                                    peer.wifi == conSSID
                                 }?.multicastAddress
                                 if(address == null){
                                     address = repo.getWifiConfigBySsid(conSSID).connAddress

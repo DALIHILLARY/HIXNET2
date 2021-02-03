@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import java.io.Serializable
 
-@Entity(primaryKeys = ["meshID","multicastAddress"])
+@Entity(primaryKeys = ["meshID","multicastAddress","hops"])
 data class DeviceNode (
     val meshID : String = "",
     val serviceAddress : String = "",

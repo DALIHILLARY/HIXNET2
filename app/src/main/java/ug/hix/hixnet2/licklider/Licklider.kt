@@ -12,7 +12,6 @@ import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.database.File as DFile
-import ug.hix.hixnet2.meshlink.UpdateDevice
 import ug.hix.hixnet2.models.*
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.services.MeshDaemon
@@ -33,7 +32,6 @@ class Licklider(private val mContext: Context){
     private val coroutineLock = Mutex()
     lateinit var dbDevice : ug.hix.hixnet2.database.DeviceNode
     var keyCounter = mutableMapOf<String, Int>()
-    private val updateFun = UpdateDevice()
 
     private var myMessagesQueue = mutableListOf<Packet>()
 

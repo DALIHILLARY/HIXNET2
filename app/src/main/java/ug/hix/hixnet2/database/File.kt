@@ -6,10 +6,10 @@ import androidx.room.PrimaryKey
 @Entity
 data class File(
     @PrimaryKey val CID : String,
-    val path : String,
+    val path : String? = null,
     val size : Int,
-    val cloudName : String,
+    val cloudName : String? = null,
     val extension : String,
-    val modified : String,
+    val modified : String? = null,
     val mesh_modified: String
 )

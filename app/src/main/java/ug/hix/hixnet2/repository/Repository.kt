@@ -68,13 +68,13 @@ class Repository(val context : Context) {
 
         }
     }
-    fun insertFile(file: File){
+    fun insertOrUpdateFile(file: File){
         runBlocking(Dispatchers.IO) {
             fileDao.insertAll(file)
-            val nameSlub = Util().slub(file.cloudName)
-            val name = fileDao.getName(nameSlub)
+            val nameSlub = file.cloudName?.let { Util().slub(it) }
+            val name = nameSlub?.let { fileDao.getName(it) }
             if(name == null){
-                fileDao.addName(Name(nameSlub,file.cloudName))
+                fileDao.addName(Name(nameSlub!!, file.cloudName))
             }
             fileDao.addFileName(FileName(file.CID,nameSlub))
             fileDao.addFileSeeder(FileSeeder(file.CID,MeshDaemon.device.meshID))

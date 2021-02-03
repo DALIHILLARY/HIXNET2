@@ -49,19 +49,19 @@ class MeshDaemon : LifecycleService() {
         channel =  NetworkCardManager.getChannelInstance(applicationContext,manager)
         cardManager = NetworkCardManager.getNetworkManagerInstance(this,manager, channel, Dispatchers.Default)
         thread {
-            val uploadedfiles = repo.getAllFiles()
-
-            uploadedfiles.forEach { file ->
-                val fileAttribute = mutableMapOf<String,MutableList<String>>()
-                fileAttribute["Name"] = mutableListOf(file.cloudName)
-                fileAttribute["Seeders"] = mutableListOf(device.meshID)
-                fileAttribute["Size"] = mutableListOf(file.size.toString())
-                fileAttribute["Date"] = mutableListOf(file.modified)
-                fileAttribute["Extension"] = mutableListOf(file.extension)
-
-                filesHashMap[file.CID] = fileAttribute
-
-            }
+//            val uploadedfiles = repo.getAllFiles()
+//
+//            uploadedfiles.forEach { file ->
+//                val fileAttribute = mutableMapOf<String,MutableList<String>>()
+//                fileAttribute["Name"] = mutableListOf(file.cloudName)
+//                fileAttribute["Seeders"] = mutableListOf(device.meshID)
+//                fileAttribute["Size"] = mutableListOf(file.size.toString())
+//                fileAttribute["Date"] = mutableListOf(file.modified)
+//                fileAttribute["Extension"] = mutableListOf(file.extension)
+//
+//                filesHashMap[file.CID] = fileAttribute
+//
+//            }
             val netIds = repo.getAllWifiNetIds()
             netIds.forEach { netId ->
                 cardManager.mWifiManager.enableNetwork(netId,false)
