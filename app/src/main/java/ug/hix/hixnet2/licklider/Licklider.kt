@@ -68,7 +68,7 @@ class Licklider(private val mContext: Context){
             }
             is DFile -> {
                 isFile = true
-                val file = File(message.path)
+                val file = File(message.path!!)
                 packet = packet.copy(messageType = "FILE",port = PORT, packetID = message.CID)
                 splitter(mPacket = packet, file = file)
             }
@@ -80,7 +80,7 @@ class Licklider(private val mContext: Context){
     }
     fun loadData(mFile : DFile, offsets: List<Int>,toMeshId: String){
         var packet = Packet()
-        val file = File(mFile.path)
+        val file = File(mFile.path!!)
         packet = packet.copy(messageType = "FILE",port = PORT, packetID = mFile.CID,originalFromMeshID = Generator.getPID(),toMeshID = toMeshId)
         splitter(mPacket = packet, file = file, offsets = offsets)
 
@@ -206,9 +206,12 @@ class Licklider(private val mContext: Context){
                 //new cloud file listener
                 try{
                     repo.getNewCloudFile().collect {
-//                    TODO("send file info to neighbours")
+                        it?.let {
+                            //                    TODO("send file info to neighbours")
 
-                        Log.d(TAG,"New file detected: $it")
+                            Log.d(TAG,"New file detected: $it")
+                        }
+
                     }
                 }catch (e: Throwable){
                     Log.e(TAG,"Something happened to the cloudFile listener")
@@ -218,26 +221,28 @@ class Licklider(private val mContext: Context){
                 try{
 
                     repo.getUpdatedDevice().collect {
-                        val deviceSend = DeviceNode(
-                            meshID = MeshDaemon.device.meshID,
-                            peers = listOf(
-                                DeviceNode(
-                                    meshID = it.meshID,
-                                    Hops = it.hops,
-                                    macAddress = it.macAddress,
-                                    publicKey = it.publicKey,
-                                    hasInternetWifi = it.hasInternetWifi,
-                                    wifi = it.wifiName,
-                                    passPhrase = it.passPhrase,
-                                    version = it.version,
-                                    status = it.status
-                                )
+                        it?.let{
+                            val deviceSend = DeviceNode(
+                                meshID = MeshDaemon.device.meshID,
+                                peers = listOf(
+                                    DeviceNode(
+                                        meshID = it.meshID,
+                                        Hops = it.hops,
+                                        macAddress = it.macAddress,
+                                        publicKey = it.publicKey,
+                                        hasInternetWifi = it.hasInternetWifi,
+                                        wifi = it.wifiName,
+                                        passPhrase = it.passPhrase,
+                                        version = it.version,
+                                        status = it.status
+                                    )
 
+                                )
                             )
-                        )
-                        Log.d(TAG,"New device detected: $it")
-                        loadData(message = deviceSend, toMeshId = device.meshID)
-                        TODO("IF STATUS DISCONNECTED DE-ACTIVE WIFI")
+                            Log.d(TAG,"New device detected: $it")
+                            loadData(message = deviceSend, toMeshId = it.meshID)
+                            if(it.status == "DISCONNECTED") repo.deleteDevice(it)
+                        }
 
                     }
                 }catch (e: Throwable){
@@ -414,7 +419,7 @@ class Licklider(private val mContext: Context){
     private fun getLink(meshId : String, packetType : String) : List<Triple<String,String,Int>> {
         val repo = Repository(mContext)
         return if (packetType == "meshUpdate"){
-           repo.getNearLinks(meshId) //get all neighbour links except the provided "meshId"
+           repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
         }else{
             if(packetType == "ACK"){
 //                TODO("get address nearest with file")

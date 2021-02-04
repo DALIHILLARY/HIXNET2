@@ -26,7 +26,7 @@ class Repository(val context : Context) {
         return runBlocking(Dispatchers.IO){fileDao.getFiles()}
     }
     @ExperimentalCoroutinesApi
-    fun getNewCloudFile(): Flow<File> {
+    fun getNewCloudFile(): Flow<File?> {
         return runBlocking(Dispatchers.IO){
             fileDao.getNewCloudFile().distinctUntilChanged()
         }
@@ -87,8 +87,9 @@ class Repository(val context : Context) {
     }
     fun deleteDevice(device: DeviceNode){
         runBlocking(Dispatchers.IO) {
-            deviceDao.removeDevice(device)  //seeder removed by relations in fileseeder
-//            deviceDao.removeSeeder(device.meshID)
+            deviceDao.removeDevice(device)
+            deviceDao.removeChildDevices(device.meshID) //delete children with mAddress as device meshId
+            deviceDao.removeSeeder(device.meshID) //remove all files connected to device
         }
     }
 
@@ -99,7 +100,7 @@ class Repository(val context : Context) {
         }
     }
     @ExperimentalCoroutinesApi
-    fun getUpdatedDevice(): Flow<DeviceNode> {
+    fun getUpdatedDevice(): Flow<DeviceNode?> {
         return runBlocking(Dispatchers.IO){
             deviceDao.getDeviceUpdate().distinctUntilChanged()
         }

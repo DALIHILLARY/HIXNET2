@@ -30,8 +30,8 @@ interface DeviceNodeDao {
     @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0")
     fun getNearLinks() : List<DeviceNode>
 
-    @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0 AND meshID != :except")
-    fun getNearLinks(except: String) : List<DeviceNode>
+    @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0 AND meshID NOT IN (SELECT multicastAddress FROM devicenode WHERE meshID LIKE :meshId)")
+    fun getNearLinks(meshId: String) : List<DeviceNode>
 
 //    @Query("SELECT * FROM devicenode WHERE master = 1")
 //    fun getMasterDevices() : LiveData<List<DeviceNode>>
@@ -64,7 +64,10 @@ interface DeviceNodeDao {
     @Query("DELETE FROM fileseeder WHERE meshID LIKE :meshId")
     fun removeSeeder(meshId: String)
 
+    @Query("DELETE FROM devicenode WHERE multicastAddress LIKE :meshId")
+    fun removeChildDevices(meshId: String)
+
     @Query("SELECT * FROM devicenode WHERE status ORDER BY modified DESC LIMIT 1 ")
-    fun getDeviceUpdate(): Flow<DeviceNode>
+    fun getDeviceUpdate(): Flow<DeviceNode?>
 
 }

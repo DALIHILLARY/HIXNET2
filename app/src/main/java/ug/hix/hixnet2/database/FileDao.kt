@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FileDao {
-    @Query("SELECT * FROM file")
+    @Query("SELECT * FROM file WHERE modified != null")
     fun getAllFiles() : LiveData<List<File>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -18,7 +18,7 @@ interface FileDao {
     @Query("SELECT CID FROM file")
     fun gelAllCID() : List<String>
 
-    @Query("SELECT * FROM file")
+    @Query("SELECT * FROM file WHERE modified != null")
     fun getFiles() : List<File>
 
     @Query("SELECT * FROM file WHERE CID LIKE :cid")
@@ -40,7 +40,10 @@ interface FileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE, entity = FileSeeder::class )
     fun addFileSeeder(relation: FileSeeder)
 
-    @Query("SELECT * FROM File ORDER BY mesh_modified DESC LIMIT 1")
-    fun getNewCloudFile(): Flow<File>
+    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
+    fun getNewCloudFile(): Flow<File?>
+
+    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
+    fun getNewCloudFileLiveData(): LiveData<File?>
 
 }
