@@ -26,10 +26,9 @@ class UploadWorker(appContext: Context, workerParams: WorkerParameters) : Worker
                 val size = (file.length()/ 1024).toInt() //in kilobytes
                 val encodedHash = Generator.getEncodedHash(file)
                 val CID = Base58.encode(encodedHash)
-                val currentDate = Util().currentDateTime()
 
                 if(CID !in CIDs) {
-                    val fileObj = ug.hix.hixnet2.database.File(CID = CID,path = filepath, size = size, cloudName = name, extension = extension, modified = currentDate, mesh_modified = currentDate)
+                    val fileObj = ug.hix.hixnet2.database.File(CID = CID,path = filepath, size = size, cloudName = name, extension = extension, modified = Util.currentDateTime())
                     repo.insertOrUpdateFile(fileObj)
 
 //                    val fileAttribute = mutableMapOf<String, MutableList<String>>()

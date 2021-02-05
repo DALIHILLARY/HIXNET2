@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.cyphers.Generator
+import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.database.File as DFile
 import ug.hix.hixnet2.models.*
 import ug.hix.hixnet2.repository.Repository
@@ -156,7 +157,7 @@ class Licklider(private val mContext: Context){
 
                 while(i < blockCount){
                     val idx = (i - 1) * blockSize
-                    val range = buffer!!.copyOfRange(idx, idx + blockSize)
+                    val range = buffer!!. copyOfRange(idx, idx + blockSize)
 
                     packet = packet.copy(payload = range.toByteString(),offset = i)
 
@@ -203,10 +204,13 @@ class Licklider(private val mContext: Context){
             launch {
                 val repo = Repository(mContext)
 
-                //new cloud file listener
+                /*
+                * CLoud file listeners
+                * listen for name changes, seeders a
+                 */
                 try{
-                    repo.getNewCloudFile().collect {
-                        it?.let {
+                    repo.getUpdatedName().collect { name ->
+                        name?.let {
                             //                    TODO("send file info to neighbours")
 
                             Log.d(TAG,"New file detected: $it")
@@ -214,7 +218,33 @@ class Licklider(private val mContext: Context){
 
                     }
                 }catch (e: Throwable){
-                    Log.e(TAG,"Something happened to the cloudFile listener")
+                    Log.e(TAG,"Something happened to the name listener")
+                }
+                try{
+                    repo.getUpdatedFileName().collect { filename ->
+                        filename?.let {
+                            //                    TODO("send file info to neighbours")
+
+                            Log.d(TAG,"New file detected: $it")
+                        }
+
+                    }
+                }catch (e: Throwable){
+                    Log.e(TAG,"Something happened to the filename listener")
+                }
+
+//                fileSeeder listener
+                try{
+                    repo.getUpdatedFileSeeder().collect { fileSeeder ->
+                        fileSeeder?.let {
+                            //                    TODO("send file info to neighbours")
+
+                            Log.d(TAG,"New file detected: $it")
+                        }
+
+                    }
+                }catch (e: Throwable){
+                    Log.e(TAG,"Something happened to the fileSeeder listener")
                 }
 
 //                new device listener
@@ -226,22 +256,22 @@ class Licklider(private val mContext: Context){
                                 meshID = MeshDaemon.device.meshID,
                                 peers = listOf(
                                     DeviceNode(
-                                        meshID = it.meshID,
-                                        Hops = it.hops,
-                                        macAddress = it.macAddress,
-                                        publicKey = it.publicKey,
-                                        hasInternetWifi = it.hasInternetWifi,
-                                        wifi = it.wifiName,
-                                        passPhrase = it.passPhrase,
-                                        version = it.version,
-                                        status = it.status
+                                        meshID = it!!.device.meshID,
+                                        Hops = it.device.hops,
+                                        macAddress = it.wifiConfig.mac,
+                                        publicKey = it.device.publicKey,
+                                        hasInternetWifi = it.device.hasInternetWifi,
+                                        wifi = it.wifiConfig.ssid,
+                                        passPhrase = it.wifiConfig.passPhrase,
+                                        version = it.device.version,
+                                        status = it.device.status
                                     )
 
                                 )
                             )
                             Log.d(TAG,"New device detected: $it")
-                            loadData(message = deviceSend, toMeshId = it.meshID)
-                            if(it.status == "DISCONNECTED") repo.deleteDevice(it)
+                            loadData(message = deviceSend, toMeshId = it!!.device.meshID)
+                            if(it.device.status == "DISCONNECTED") repo.deleteDevice(it.device)
                         }
 
                     }
@@ -638,34 +668,24 @@ class Licklider(private val mContext: Context){
                         meshID = device.meshID,
                         multicastAddress = deviceUpdate.meshID,
                         hops = device.Hops + 1,
-                        macAddress = device.macAddress,
                         publicKey = device.publicKey,
                         hasInternetWifi = device.hasInternetWifi,
                         iface = iFace,
-                        wifiName = device.wifi,
-                        passPhrase = device.passPhrase,
                         status = device.status,
                         version = device.version,
-                        modified = Util().currentDateTime()
+                        modified = Util.currentDateTime()
+                    )
+                }
+                val wifiConfigObj =  deviceUpdate.peers.map {device ->
+                    WifiConfig(
+                        meshId = device.meshID,
+                        mac = device.macAddress,
+                        ssid = device.wifi,
+                        passPhrase = device.passPhrase
                     )
                 }
                 val repo = Repository(mContext)  
-                repo.insertOrUpdateDevice(deviceObj)
-//                val deviceSend = DeviceNode(
-//                    meshID = device.meshID,
-//                    peers = deviceUpdate.peers.map {peer ->
-//                        DeviceNode(
-//                            meshID = peer.meshID,
-//                            Hops = peer.Hops + 1,
-//                            macAddress = peer.macAddress,
-//                            publicKey = peer.publicKey,
-//                            hasInternetWifi = peer.hasInternetWifi,
-//                            wifi = peer.wifi,
-//                            passPhrase = peer.passPhrase
-//                        )
-//
-//                })
-//                loadData(message = deviceSend, toMeshId = device.meshID)
+                repo.insertOrUpdateDeviceWithConfig(deviceObj,wifiConfigObj)
 
             }
         }

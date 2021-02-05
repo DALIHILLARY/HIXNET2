@@ -6,13 +6,16 @@ import java.util.*
 
 class Util {
 
-    fun slub(rawString: String) : String {
-        return rawString.replace(" ", "-").toLowerCase(Locale.ROOT)
+    companion object {
+        fun slub(rawString: String) : String {
+            return rawString.replace(" ", "-").toLowerCase(Locale.ROOT)
+        }
+        @SuppressLint("SimpleDateFormat")
+        fun currentDateTime(): String{
+            val calender = Calendar.getInstance()
+            val format = SimpleDateFormat("yyyy/mm/dd HH:mm:ss.SSS")
+            return format.format(calender.time)
+        }
     }
-    @SuppressLint("SimpleDateFormat")
-    fun currentDateTime(): String{
-        val calender = Calendar.getInstance()
-        val format = SimpleDateFormat("yyyy/mm/dd hh:mm:ss.SSS")
-        return format.format(calender.time)
-    }
+
 }

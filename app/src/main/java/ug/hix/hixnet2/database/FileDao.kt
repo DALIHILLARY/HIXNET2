@@ -9,6 +9,9 @@ interface FileDao {
     @Query("SELECT * FROM file WHERE modified != null")
     fun getAllFiles() : LiveData<List<File>>
 
+    @Query("SELECT * FROM file WHERE modified == null")
+    fun getCloudFiles() : LiveData<List<File>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAll(vararg : File)
 
@@ -40,10 +43,18 @@ interface FileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE, entity = FileSeeder::class )
     fun addFileSeeder(relation: FileSeeder)
 
-    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
-    fun getNewCloudFile(): Flow<File?>
+//    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
+//    fun getNewCloudFile(): Flow<File?>
+//
+//    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
+//    fun getNewCloudFileLiveData(): LiveData<File?>
+    @Query("SELECT * FROM filename ORDER BY modified DESC LIMIT 1")
+    fun getUpdatedFileName() : Flow<FileName?>
 
-    @Query("SELECT * FROM File WHERE modified == null ORDER BY mesh_modified DESC LIMIT 1")
-    fun getNewCloudFileLiveData(): LiveData<File?>
+    @Query("SELECT * FROM fileseeder ORDER BY modified DESC LIMIT 1")
+    fun getUpdatedFileSeeder(): Flow<FileSeeder?>
+
+    @Query("SELECT * FROM NAME ORDER BY modified DESC LIMIT 1")
+    fun getUpdatedNames(): Flow<Name?>
 
 }

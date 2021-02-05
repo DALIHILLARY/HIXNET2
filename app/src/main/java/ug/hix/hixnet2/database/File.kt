@@ -10,6 +10,5 @@ data class File(
     val size : Int,
     val cloudName : String? = null,
     val extension : String,
-    val modified : String? = null,
-    val mesh_modified: String
+    val modified : String? = null
 )

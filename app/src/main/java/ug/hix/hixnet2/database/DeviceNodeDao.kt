@@ -6,17 +6,25 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DeviceNodeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE, entity = WifiConfig::class)
+    fun addConfig( config :List<WifiConfig>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : List<DeviceNode>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : DeviceNode)
 
+    fun addDeviceWithConfig(device: List<DeviceNode>, wifiConfig: List<WifiConfig>){
+        addDevice(device)
+        addConfig(wifiConfig)
+    }
     @Delete()
     fun removeDevice(device: DeviceNode)
 
     @Query("SELECT * FROM devicenode")
-    fun getAllDevices() : LiveData<List<DeviceNode>>
+    @Transaction
+    fun getAllDevices() : LiveData<List<DeviceNodeWithWifiConfig>>
 
     @Query("SELECT min(hops) FROM devicenode WHERE meshID LIKE :meshId")
     fun getMinHop(meshId: String) : Int?
@@ -68,6 +76,7 @@ interface DeviceNodeDao {
     fun removeChildDevices(meshId: String)
 
     @Query("SELECT * FROM devicenode WHERE status ORDER BY modified DESC LIMIT 1 ")
-    fun getDeviceUpdate(): Flow<DeviceNode?>
+    @Transaction
+    fun getDeviceUpdate(): Flow<DeviceNodeWithWifiConfig?>
 
 }

@@ -25,19 +25,20 @@ class Repository(val context : Context) {
     fun getAllFiles() : List<File> {
         return runBlocking(Dispatchers.IO){fileDao.getFiles()}
     }
-    @ExperimentalCoroutinesApi
-    fun getNewCloudFile(): Flow<File?> {
-        return runBlocking(Dispatchers.IO){
-            fileDao.getNewCloudFile().distinctUntilChanged()
-        }
-    }
+//    @ExperimentalCoroutinesApi
+//    fun getNewCloudFile(): Flow<File?> {
+//        return runBlocking(Dispatchers.IO){
+//            fileDao.getNewCloudFile().distinctUntilChanged()
+//        }
+//    }
 
     fun getCIDs() : List<String> {
         return runBlocking(Dispatchers.IO){fileDao.gelAllCID()}
     }
     fun deleteFile(file: File){
         runBlocking(Dispatchers.IO){
-            fileDao.deleteFileSeeder(FileSeeder(file.CID,MeshDaemon.device.meshID))
+            val device = MeshDaemon.device.meshID
+            fileDao.deleteFileSeeder(FileSeeder(file.CID,device,modified_by = device))
             fileDao.delete(file)
         }
     }
@@ -70,19 +71,53 @@ class Repository(val context : Context) {
     }
     fun insertOrUpdateFile(file: File){
         runBlocking(Dispatchers.IO) {
-            fileDao.insertAll(file)
-            val nameSlub = file.cloudName?.let { Util().slub(it) }
+            val device = MeshDaemon.device.meshID
+            val nameSlub = file.cloudName?.let { Util.slub(it) }
             val name = nameSlub?.let { fileDao.getName(it) }
             if(name == null){
-                fileDao.addName(Name(nameSlub!!, file.cloudName))
+                fileDao.addName(Name(nameSlub!!, file.cloudName,modified_by = device))
             }
-            fileDao.addFileName(FileName(file.CID,nameSlub))
-            fileDao.addFileSeeder(FileSeeder(file.CID,MeshDaemon.device.meshID))
+            fileDao.insertAll(file)
+            fileDao.addFileName(FileName(file.CID,nameSlub,modified_by = device))
+            fileDao.addFileSeeder(FileSeeder(CID = file.CID, meshID = device,modified_by = device))
+        }
+    }
+    fun updateFileName(fileName: FileName){
+        runBlocking(Dispatchers.IO){
+            fileDao.addFileName(fileName)
+        }
+    }
+    fun updateFileSeeder(fileSeeder: FileSeeder){
+        runBlocking(Dispatchers.IO){
+            fileDao.addFileSeeder(fileSeeder)
         }
     }
     fun insertOrUpdateDevice(devices: List<DeviceNode>){
         runBlocking(Dispatchers.IO){
             deviceDao.addDevice(devices)
+        }
+    }
+    @ExperimentalCoroutinesApi
+    fun getUpdatedName(): Flow<Name?>{
+        return runBlocking(Dispatchers.IO){
+            fileDao.getUpdatedNames().distinctUntilChanged()
+        }
+    }
+    @ExperimentalCoroutinesApi
+    fun getUpdatedFileName(): Flow<FileName?>{
+        return runBlocking(Dispatchers.IO){
+            fileDao.getUpdatedFileName().distinctUntilChanged()
+        }
+    }
+    @ExperimentalCoroutinesApi
+    fun getUpdatedFileSeeder(): Flow<FileSeeder?>{
+        return runBlocking(Dispatchers.IO){
+            fileDao.getUpdatedFileSeeder().distinctUntilChanged()
+        }
+    }
+    fun insertOrUpdateDeviceWithConfig(devices: List<DeviceNode>, wifiConfigs: List<WifiConfig>){
+        runBlocking(Dispatchers.IO){
+            deviceDao.addDeviceWithConfig(devices,wifiConfigs)
         }
     }
     fun deleteDevice(device: DeviceNode){
@@ -100,7 +135,7 @@ class Repository(val context : Context) {
         }
     }
     @ExperimentalCoroutinesApi
-    fun getUpdatedDevice(): Flow<DeviceNode?> {
+    fun getUpdatedDevice(): Flow<DeviceNodeWithWifiConfig?> {
         return runBlocking(Dispatchers.IO){
             deviceDao.getDeviceUpdate().distinctUntilChanged()
         }
