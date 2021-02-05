@@ -7,8 +7,8 @@ data class DeviceNodeWithWifiConfig (
     @Embedded
     val device: DeviceNode,
     @Relation(
-        parentColumn = "meshId",
-        entityColumn = "meshId"
+        parentColumn = "meshID",
+        entityColumn = "meshID"
     )
     val wifiConfig: WifiConfig
 

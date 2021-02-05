@@ -39,7 +39,6 @@ class MeshDaemon : LifecycleService() {
 
         device = DeviceNode(
             meshID = deviceInfo.meshID,
-            macAddress = deviceInfo.macAddress,
             multicastAddress = deviceInfo.multicastAddress,
             hasInternetWifi = false,
             Hops = 0

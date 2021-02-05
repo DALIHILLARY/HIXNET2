@@ -678,7 +678,7 @@ class Licklider(private val mContext: Context){
                 }
                 val wifiConfigObj =  deviceUpdate.peers.map {device ->
                     WifiConfig(
-                        meshId = device.meshID,
+                        meshID = device.meshID,
                         mac = device.macAddress,
                         ssid = device.wifi,
                         passPhrase = device.passPhrase

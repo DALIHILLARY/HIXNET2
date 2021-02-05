@@ -60,8 +60,3 @@ dependencies {
     androidTestImplementation 'androidx.navigation:navigation-testing:2.3.2'
 
 }
-compileKotlin {
-    kotlinOptions {
-        languageVersion = "1.4"
-    }
-}

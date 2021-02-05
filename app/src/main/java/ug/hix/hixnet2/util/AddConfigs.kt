@@ -29,7 +29,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
             insert10(context,null,device)
             val netId = (1000 + Random().nextInt(1000 -1))
-            wifiConfig = WifiConfig(netId,device.SSID,device.BSSID,password,"address")
+            wifiConfig = WifiConfig(netId = netId,ssid =device.SSID,mac = device.BSSID,passPhrase = password,connAddress = "address",meshID = "testing")
 
         }else{
 
@@ -40,7 +40,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
             sleep(2000L)
             mWifiManager.enableNetwork(netId, false)
             Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : $password netId : $netId")
-            wifiConfig = WifiConfig(netId,device.SSID,device.BSSID,password,"address")
+            wifiConfig = WifiConfig(netId = netId,ssid =device.SSID,mac = device.BSSID,passPhrase = password,connAddress = "address",meshID = "testing")
         }
         repo.addWifiConfig(wifiConfig)
 
@@ -50,7 +50,8 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             insert10(context,connectInfo,null)
             val netId = (1000 + Random().nextInt(1000 -1))
-            wifiConfig = WifiConfig(netId,connectInfo[0],connectInfo[1],connectInfo[2],connectInfo[3])
+            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = "testing")
+
 
         }else{
             mWifiConfig.SSID = "\"${connectInfo[0]}\""
@@ -62,7 +63,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
             mWifiManager.enableNetwork(netId, false)
 
             Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : ${mWifiConfig.preSharedKey} netId : $netId")
-            wifiConfig = WifiConfig(netId,connectInfo[0],connectInfo[1],connectInfo[2],connectInfo[3])
+            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = "testing")
         }
 
         repo.addWifiConfig(wifiConfig)

@@ -2,6 +2,7 @@ package ug.hix.hixnet2.database
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import ug.hix.hixnet2.util.Util
 
 @Entity(
@@ -17,7 +18,9 @@ import ug.hix.hixnet2.util.Util
             parentColumns = ["name_slub"],
             childColumns = ["name_slub"]
         )
-    ]
+    ],
+    indices = [Index(value = ["name_slub"], unique = true)]
+
 )
 data class FileName (
     val CID : String,

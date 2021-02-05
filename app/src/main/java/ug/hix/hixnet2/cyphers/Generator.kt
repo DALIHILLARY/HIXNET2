@@ -60,7 +60,7 @@ open class Generator {
             val macAddress = getMacAddress()
             val multicastAddress =  getMultiAddress(null,null)
             //store keys in database
-            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, macAddress = macAddress, multicastAddress = multicastAddress, isMe = true)
+            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, multicastAddress = multicastAddress, isMe = true)
             deviceDb?.addDevice(device)
 
         }
