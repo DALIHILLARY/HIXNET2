@@ -1,10 +1,12 @@
 package ug.hix.hixnet2.repository
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import ug.hix.hixnet2.database.*
 import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.Util
@@ -19,29 +21,33 @@ class Repository(val context : Context) {
     fun getFiles() : LiveData<List<File>> {
         return fileDao.getAllFiles()
     }
-    fun getFileByCid(cid: String) : File{
+    fun getCloudFiles(): LiveData<List<FileName>> {
+        return fileDao.getUpdatedFileNameLiveData()
+    }
+    fun getFileByCid(cid: String) : File? {
         return runBlocking(Dispatchers.IO){fileDao.getFileByCid(cid)}
     }
     fun getAllFiles() : List<File> {
         return runBlocking(Dispatchers.IO){fileDao.getFiles()}
     }
-//    @ExperimentalCoroutinesApi
-//    fun getNewCloudFile(): Flow<File?> {
-//        return runBlocking(Dispatchers.IO){
-//            fileDao.getNewCloudFile().distinctUntilChanged()
-//        }
-//    }
 
     fun getCIDs() : List<String> {
         return runBlocking(Dispatchers.IO){fileDao.gelAllCID()}
     }
     fun deleteFile(file: File){
         runBlocking(Dispatchers.IO){
-            val device = MeshDaemon.device.meshID
-            fileDao.deleteFileSeeder(FileSeeder(file.CID,device,modified_by = device))
+            val meshId = MeshDaemon.device.meshID
             fileDao.delete(file)
+            fileDao.addFileSeeder(FileSeeder(file.CID,meshId,"Deleted",modified_by = meshId))
+            if(fileDao.getFileSeeders(file.CID).isNullOrEmpty())
+                fileDao.updateFileNameStatus(file.CID,meshId,"Deleted")
         }
     }
+    fun updateAddress(address: String){
+        return runBlocking(Dispatchers.IO){deviceDao.updateAddress(address)}
+    }
+    @ExperimentalCoroutinesApi
+    fun getNewAddressFlow(): Flow<String> = deviceDao.getNewAddressFlow().distinctUntilChanged()
 
     fun getLink(meshId: String) : Triple<String,String,Int> {
         return runBlocking(Dispatchers.IO) {
@@ -62,12 +68,18 @@ class Repository(val context : Context) {
     }
     fun getNearLinks(except: String  = ""): List<Triple<String,String,Int>> {
         return runBlocking(Dispatchers.IO) {
-            if(except.isEmpty())
+            val result :  List<Triple<String,String,Int>> = if(except.isEmpty())
                 deviceDao.getNearLinks().map { Triple(it.multicastAddress,it.iface,it.hops) }
             else
                 deviceDao.getNearLinks(except).map { Triple(it.multicastAddress,it.iface,it.hops) }
-
+            if(result.isNotEmpty())
+                result
+            else
+                listOf(Triple("notAvailable","None",0))
         }
+    }
+    fun getNearMultiAddresses() : List<String>{
+        return runBlocking(Dispatchers.IO) { deviceDao.getNearLinks().map { it.multicastAddress } }
     }
     fun insertOrUpdateFile(file: File){
         runBlocking(Dispatchers.IO) {
@@ -84,41 +96,73 @@ class Repository(val context : Context) {
     }
     fun updateFileName(fileName: FileName){
         runBlocking(Dispatchers.IO){
-            fileDao.addFileName(fileName)
+            if(!isExistFileName(fileName))
+                fileDao.addFileName(fileName)
         }
+    }
+    private fun isExistFileName(fileName: FileName) : Boolean {
+        val result = fileDao.getFileName(fileName.CID, fileName.name_slub)
+        return if (result == null) false
+        else
+            if(fileName.modified > result.modified) fileName.status == result.status
+            else true
+    }
+    fun updateName(name: Name){
+        runBlocking(Dispatchers.IO){
+            if(!isExistName(name))
+                fileDao.addName(name)
+        }
+    }
+    private fun isExistName(name: Name) : Boolean {
+        val result = fileDao.getName(name.name_slub)
+        return if(result == null) false
+        else
+            if(name.modified > result.modified) name.status == result.status
+            else true
     }
     fun updateFileSeeder(fileSeeder: FileSeeder){
         runBlocking(Dispatchers.IO){
-            fileDao.addFileSeeder(fileSeeder)
+            if(!isExistFileSeeder(fileSeeder))
+                fileDao.addFileSeeder(fileSeeder)
         }
     }
+    private fun isExistFileSeeder(fileSeeder: FileSeeder) : Boolean {
+        val result = fileDao.getFileSeeder(fileSeeder.CID,fileSeeder.meshID)
+        return if(result == null) false
+        else
+            if(fileSeeder.modified > result.modified) fileSeeder.status == result.status
+            else true
+    }
+
+    suspend fun getAllFileNames() : List<FileName> = withContext(Dispatchers.IO) { fileDao.getAllFileNames()}
+    suspend fun getAllNames() : List<Name> = withContext(Dispatchers.IO){fileDao.getAllNames()}
+    suspend fun getAllFileSeeders(): List<FileSeeder> = withContext(Dispatchers.IO){fileDao.getAllFileSeeders()}
     fun insertOrUpdateDevice(devices: List<DeviceNode>){
         runBlocking(Dispatchers.IO){
             deviceDao.addDevice(devices)
         }
     }
     @ExperimentalCoroutinesApi
-    fun getUpdatedName(): Flow<Name?>{
-        return runBlocking(Dispatchers.IO){
-            fileDao.getUpdatedNames().distinctUntilChanged()
-        }
-    }
+    fun getUpdatedNameFlow(): Flow<Name?> = fileDao.getUpdatedNamesFlow().distinctUntilChanged()
+
     @ExperimentalCoroutinesApi
-    fun getUpdatedFileName(): Flow<FileName?>{
-        return runBlocking(Dispatchers.IO){
-            fileDao.getUpdatedFileName().distinctUntilChanged()
-        }
-    }
+    fun getUpdatedFileNameFlow(): Flow<FileName?> = fileDao.getUpdatedFileNameFlow().distinctUntilChanged()
+
     @ExperimentalCoroutinesApi
-    fun getUpdatedFileSeeder(): Flow<FileSeeder?>{
-        return runBlocking(Dispatchers.IO){
-            fileDao.getUpdatedFileSeeder().distinctUntilChanged()
-        }
-    }
+    fun getUpdatedFileSeederFlow(): Flow<FileSeeder?> = fileDao.getUpdatedFileSeederFlow().distinctUntilChanged()
+
     fun insertOrUpdateDeviceWithConfig(devices: List<DeviceNode>, wifiConfigs: List<WifiConfig>){
         runBlocking(Dispatchers.IO){
-            deviceDao.addDeviceWithConfig(devices,wifiConfigs)
+            if(validateDeviceUpdate(devices[0]))
+                deviceDao.addDeviceWithConfig(devices,wifiConfigs)
         }
+    }
+    private fun validateDeviceUpdate(device : DeviceNode) : Boolean {
+        val result = deviceDao.getDevice(device.meshID,device.multicastAddress)
+        return if(result == null) true
+        else device.modified > result.modified
+
+
     }
     fun deleteDevice(device: DeviceNode){
         runBlocking(Dispatchers.IO) {
@@ -135,9 +179,26 @@ class Repository(val context : Context) {
         }
     }
     @ExperimentalCoroutinesApi
-    fun getUpdatedDevice(): Flow<DeviceNodeWithWifiConfig?> {
-        return runBlocking(Dispatchers.IO){
-            deviceDao.getDeviceUpdate().distinctUntilChanged()
+    fun getUpdatedDeviceFlow(): Flow<DeviceNodeWithWifiConfig?>{
+        return deviceDao.getDeviceUpdateFlow().map { device ->
+            if(device != null ){
+                DeviceNodeWithWifiConfig(
+                    device = device,
+                    wifiConfig = getWifiConfigByMeshId(device.meshID)
+                )
+            }else
+                null
+
+        }.distinctUntilChanged()
+    }
+    fun getAllDevices(): List<DeviceNodeWithWifiConfig> {
+        return runBlocking(Dispatchers.IO) {
+            deviceDao.getAllDevices().map { device ->
+                DeviceNodeWithWifiConfig(
+                    device = device,
+                    wifiConfig = getWifiConfigByMeshId(device.meshID)
+                )
+            }
         }
     }
 
@@ -154,14 +215,22 @@ class Repository(val context : Context) {
         return wifiDao.getAllNetId()
     }
     fun getWifiConfigBySsid(ssid : String) : WifiConfig {
-        return wifiDao.getDeviceConfigBySsid(ssid)
+        return wifiDao.getWifiConfigBySsid(ssid)
+    }
+    fun isWifiConfig(ssid: String) : Boolean {
+        return wifiDao.getWifiConfigBySsidList(ssid).isNotEmpty()
     }
     fun getWifiConfigByMac(mac : String) : WifiConfig {
-        return wifiDao.getDeviceConfigByMac(mac)
+        return wifiDao.getWifiConfigByMac(mac)
+    }
+    private fun getWifiConfigByMeshId(meshId: String) : WifiConfig {
+        return wifiDao.getWifiConfigByMeshId(meshId)
     }
 
 
     companion object{
+        @SuppressLint("StaticFieldLeak")
+        @Volatile
         private var instance : Repository? = null
         @Synchronized  fun getInstance(mContext: Context) : Repository{
             if(instance == null){

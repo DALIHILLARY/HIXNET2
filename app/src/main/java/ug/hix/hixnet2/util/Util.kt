@@ -13,7 +13,7 @@ class Util {
         @SuppressLint("SimpleDateFormat")
         fun currentDateTime(): String{
             val calender = Calendar.getInstance()
-            val format = SimpleDateFormat("yyyy/mm/dd HH:mm:ss.SSS")
+            val format = SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS")
             return format.format(calender.time)
         }
     }

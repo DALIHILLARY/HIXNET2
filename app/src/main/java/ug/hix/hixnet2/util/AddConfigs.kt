@@ -23,7 +23,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
     lateinit var wifiConfig : WifiConfig
     private val mWifiConfig = WifiConfiguration()
     private val mWifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-
+    private val TAG = javaClass.simpleName
     fun insertNonP2pConfig(device : ScanResult) {
         val password = device.SSID.drop(6).reversed()
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
@@ -50,7 +50,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             insert10(context,connectInfo,null)
             val netId = (1000 + Random().nextInt(1000 -1))
-            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = "testing")
+            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = connectInfo[4])
 
 
         }else{
@@ -63,7 +63,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
             mWifiManager.enableNetwork(netId, false)
 
             Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : ${mWifiConfig.preSharedKey} netId : $netId")
-            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = "testing")
+            wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = connectInfo[4])
         }
 
         repo.addWifiConfig(wifiConfig)

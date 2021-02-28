@@ -1,6 +1,7 @@
 package ug.hix.hixnet2.adapter
 
 import android.content.Context
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,19 +9,21 @@ import android.widget.Filter
 import android.widget.Filterable
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import ug.hix.hixnet2.R
+import ug.hix.hixnet2.database.FileName
+import ug.hix.hixnet2.repository.Repository
 
-class CloudFragAdapter(private val mContext: Context) : RecyclerView.Adapter<CloudFragAdapter.CloudViewHolder>(), Filterable{
-    var fileHashMap = mutableMapOf<String,MutableMap<String,MutableList<String>>>()
-    var filteredFileHashMap: MutableMap<String,MutableMap<String,MutableList<String>>>
-    init {
-        filteredFileHashMap = fileHashMap
-    }
-
+class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, CloudFragAdapter.CloudViewHolder>(DIFF_CALLBACK), Filterable{
+    val repo = Repository.getInstance(mContext)
+    var filteredFileNameList = listOf<FileName>()
+    val fileNameList =  repo.getCloudFiles().value
+    val TAG = javaClass.simpleName
     inner class CloudViewHolder(cloudView: View) : RecyclerView.ViewHolder(cloudView){
         private val cloudName: TextView = cloudView.findViewById(R.id.fileName)
         private val cloudModified: TextView = cloudView.findViewById(R.id.fileModifiedDate)
@@ -28,29 +31,30 @@ class CloudFragAdapter(private val mContext: Context) : RecyclerView.Adapter<Clo
         private val cloudIcon: ImageView = cloudView.findViewById(R.id.fileIcon)
         private val cloudOptionsMenu: TextView = cloudView.findViewById(R.id.fileOptionsMenu)
 
-        fun bind(pair: Pair<String,MutableMap<String,MutableList<String>>>){
-            val cid = pair.first
-            val properties = pair.second
+        fun bind(fileName: FileName){
+            val file = repo.getFileByCid(fileName.CID)
+            file?.let{
+                cloudName.text = it.cloudName
+                cloudModified.text = it.modified
+                cloudSize.text = it.size.toString()
 
-            cloudName.text = properties["Name"]!![0]
-            cloudModified.text = properties["Date"]!![0]
-            cloudSize.text = properties["Size"]!![0]
-
-            when(properties["Extension"]!![0].toLowerCase()){
-                "pdf" -> Glide.with(mContext.applicationContext).load(R.drawable.pdf).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("xlsx","xls") -> Glide.with(mContext.applicationContext).load(R.drawable.excel).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).into(cloudIcon)
-                in listOf("doc","docx") -> Glide.with(mContext.applicationContext).load(R.drawable.word).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("ppt","pptx") -> Glide.with(mContext.applicationContext).load(R.drawable.powerpoint).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                "txt"  -> Glide.with(mContext.applicationContext).load(R.drawable.text).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                "rar"  -> Glide.with(mContext.applicationContext).load(R.drawable.rar).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
-                in listOf("zip","tar","tz") -> Glide.with(mContext.applicationContext).load(R.drawable.zip).diskCacheStrategy(
-                    DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                when(it.extension.toLowerCase()){
+                    "pdf" -> Glide.with(mContext.applicationContext).load(R.drawable.pdf).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    in listOf("xlsx","xls") -> Glide.with(mContext.applicationContext).load(R.drawable.excel).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).into(cloudIcon)
+                    in listOf("doc","docx") -> Glide.with(mContext.applicationContext).load(R.drawable.word).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    in listOf("ppt","pptx") -> Glide.with(mContext.applicationContext).load(R.drawable.powerpoint).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    "txt"  -> Glide.with(mContext.applicationContext).load(R.drawable.text).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    "rar"  -> Glide.with(mContext.applicationContext).load(R.drawable.rar).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    in listOf("zip","tar","tz") -> Glide.with(mContext.applicationContext).load(R.drawable.zip).diskCacheStrategy(
+                        DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(cloudIcon)
+                    else -> {}
+                }
             }
         }
     }
@@ -62,18 +66,8 @@ class CloudFragAdapter(private val mContext: Context) : RecyclerView.Adapter<Clo
         return CloudViewHolder(cloudView)
     }
 
-    override fun getItemCount(): Int {
-        return filteredFileHashMap.size
-    }
-
     override fun onBindViewHolder(holder: CloudViewHolder, position: Int) {
-        val filteredHashMapList = filteredFileHashMap.toList()
-        holder.bind(filteredHashMapList[position])
-    }
-
-    fun updateCloudFiles(hashMap: MutableMap<String,MutableMap<String,MutableList<String>>>){
-        fileHashMap = hashMap
-        filteredFileHashMap = hashMap
+        holder.bind(getItem(position))
     }
 
     override fun getFilter(): Filter {
@@ -81,36 +75,46 @@ class CloudFragAdapter(private val mContext: Context) : RecyclerView.Adapter<Clo
             override fun performFiltering(constraint: CharSequence?): FilterResults {
                 val charSearch = constraint.toString()
                 if(charSearch.isEmpty()){
-                    filteredFileHashMap = fileHashMap
+                    filteredFileNameList = fileNameList!!
                 }else{
-                    val CIDs = fileHashMap.keys
-                    val resultHashMap = mutableMapOf<String,MutableMap<String,MutableList<String>>>()
-                    CIDs.forEach { cid ->
+                    val resultSet = mutableSetOf<FileName>()
+                    fileNameList?.forEach {
+                        val cid = it.CID
                         if(cid.contains(charSearch)){
-                            resultHashMap[cid] = fileHashMap[cid]!!
+                            resultSet.add(it)
                         }
-                        val names = fileHashMap[cid]?.get("Name")!!
-                        names.forEach { cloudName ->
-                            if(cloudName.toLowerCase().contains(charSearch.toLowerCase())){
-                                resultHashMap[cid] = fileHashMap[cid]!!
-                            }
+                        val name = it.name_slub
+                        if(name.replace("-"," ").contains(charSearch.toLowerCase())){
+                            resultSet.add(it)
                         }
-
+                        
                     }
-                    filteredFileHashMap = resultHashMap
+                    filteredFileNameList = resultSet.toList()
                 }
                 val filterResults = FilterResults()
-                filterResults.values = filteredFileHashMap
-                filterResults.count = filteredFileHashMap.size
+                filterResults.values = filteredFileNameList
+                filterResults.count = filteredFileNameList.size
 
                 return filterResults
             }
 
             @Suppress("UNCHECKED_CAST")
             override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                filteredFileHashMap = results?.values as MutableMap<String,MutableMap<String,MutableList<String>>>
-                notifyDataSetChanged()
+                filteredFileNameList = results?.values as List<FileName>
+                submitList(filteredFileNameList)
             }
         }
+    }
+    companion object {
+        val DIFF_CALLBACK = object : DiffUtil.ItemCallback<FileName>(){
+            override fun areItemsTheSame(oldItem: FileName, newItem: FileName): Boolean {
+                return oldItem.CID == newItem.CID && oldItem.name_slub == newItem.name_slub
+            }
+
+            override fun areContentsTheSame(oldItem: FileName, newItem: FileName): Boolean {
+                return oldItem.status == newItem.status && oldItem.modified == newItem.modified && oldItem.modified_by == newItem.modified_by
+            }
+        }
+
     }
 }

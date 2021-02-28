@@ -16,7 +16,7 @@ import ug.hix.hixnet2.workers.UploadWorker
 class FileViewModel : ViewModel() {
 
     fun getFiles(context: Context) : LiveData<List<File>> {
-        val repository = Repository(context)
+        val repository = Repository.getInstance(context)
 
         return repository.getFiles()
     }

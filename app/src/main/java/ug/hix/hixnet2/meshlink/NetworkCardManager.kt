@@ -43,7 +43,7 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
     private var  netId : Int? = null
 
 
-    private val cm =      mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val cm =  mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val mWifiConfig   = WifiConfiguration()
     private val addConfig = AddConfigs(mContext,repo)
     private val licklider = Licklider.start(mContext)

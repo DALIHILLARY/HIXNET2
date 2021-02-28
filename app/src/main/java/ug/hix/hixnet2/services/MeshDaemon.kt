@@ -1,29 +1,29 @@
 package ug.hix.hixnet2.services
 
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
-import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 
 import ug.hix.hixnet2.HomeActivity
 import ug.hix.hixnet2.R
+import ug.hix.hixnet2.licklider.Licklider
+import ug.hix.hixnet2.meshlink.ConnectionMonitor
 import ug.hix.hixnet2.meshlink.NetworkCardManager
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.util.NotifyChannel
-import java.util.jar.Attributes
 import kotlin.concurrent.thread
 
 class MeshDaemon : LifecycleService() {
+    private lateinit var connMonitor : ConnectionMonitor
     private lateinit var cardManager : NetworkCardManager
     private lateinit var manager : WifiP2pManager
     private lateinit var channel : WifiP2pManager.Channel
@@ -33,7 +33,7 @@ class MeshDaemon : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        repo = Repository(applicationContext)
+        repo = Repository.getInstance(applicationContext)
         val deviceInfo = repo.getMyDeviceInfo()
 
 
@@ -46,44 +46,25 @@ class MeshDaemon : LifecycleService() {
 
         manager = applicationContext.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
         channel =  NetworkCardManager.getChannelInstance(applicationContext,manager)
-        cardManager = NetworkCardManager.getNetworkManagerInstance(this,manager, channel, Dispatchers.Default)
-        thread {
-//            val uploadedfiles = repo.getAllFiles()
-//
-//            uploadedfiles.forEach { file ->
-//                val fileAttribute = mutableMapOf<String,MutableList<String>>()
-//                fileAttribute["Name"] = mutableListOf(file.cloudName)
-//                fileAttribute["Seeders"] = mutableListOf(device.meshID)
-//                fileAttribute["Size"] = mutableListOf(file.size.toString())
-//                fileAttribute["Date"] = mutableListOf(file.modified)
-//                fileAttribute["Extension"] = mutableListOf(file.extension)
-//
-//                filesHashMap[file.CID] = fileAttribute
-//
-//            }
-            val netIds = repo.getAllWifiNetIds()
-            netIds.forEach { netId ->
-                cardManager.mWifiManager.enableNetwork(netId,false)
-            }
-            cardManager.mWifiManager.reconnect()
-        }
-
+        connMonitor = ConnectionMonitor.getInstance(this,manager,channel)
+//        cardManager = NetworkCardManager.getNetworkManagerInstance(this,manager, channel, Dispatchers.Default)
 
     }
 
+    @ExperimentalCoroutinesApi
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        thread {
+        GlobalScope.launch(Dispatchers.Default){
             isServiceRunning = true
 
 
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-                NotifyChannel.createNotificationChannel(this)
+                NotifyChannel.createNotificationChannel(this@MeshDaemon)
 
             }
-            val notificationIntent = Intent(this,HomeActivity::class.java)
-            val pendingIntent = PendingIntent.getActivity(this,0,notificationIntent,0)
-            val notification = NotificationCompat.Builder(this,NotifyChannel.CHANNEL_ID)
+            val notificationIntent = Intent(this@MeshDaemon,HomeActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(this@MeshDaemon,0,notificationIntent,0)
+            val notification = NotificationCompat.Builder(this@MeshDaemon,NotifyChannel.CHANNEL_ID)
                 .setSmallIcon(R.drawable.spider)
                 .setContentTitle("HixNet2 Daemon")
                 .setContentText("Mesh Service Running")
@@ -101,8 +82,21 @@ class MeshDaemon : LifecycleService() {
 //                }*
 //            }
 
-            cardManager.isWiFiEnabled()
-
+//            cardManager.isWiFiEnabled()
+            connMonitor.isWiFiEnabled()
+            launch {
+                Repository.getInstance(this@MeshDaemon).getNewAddressFlow().collect {
+                    Log.d(TAG,"New address: $it")
+                    Licklider.start(this@MeshDaemon).receiver(it)
+                }
+            }
+            launch{
+                while(true){
+                    Log.d(TAG,"wifi scan initiated")
+                    connMonitor.wifiScan()
+                    delay(4000L)
+                }
+            }
         }
         return START_STICKY
     }
@@ -110,8 +104,8 @@ class MeshDaemon : LifecycleService() {
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
-        cardManager.stop()
-
+//        cardManager.stop()
+        connMonitor.stop()
         thread {
             val netIds = repo.getAllWifiNetIds()
             netIds.forEach { netId ->

@@ -11,6 +11,7 @@ import java.util.*
 
 import ug.hix.hixnet2.database.HixNetDatabase
 import ug.hix.hixnet2.database.DeviceNode
+import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.util.Base58
 import java.io.File
 import java.io.FileInputStream
@@ -40,7 +41,7 @@ open class Generator {
         }
 
         
-        private fun createKeys(){
+        private fun createKeys(context: Context){
             val deviceDb = hixNetInstance?.deviceNodeDao()
 
             val kpg = KeyPairGenerator.getInstance("RSA")
@@ -58,9 +59,9 @@ open class Generator {
 
             pid = "HixNet${Base58.encode(encodedHash)}"
             val macAddress = getMacAddress()
-            val multicastAddress =  getMultiAddress(null,null)
+            val multicastAddress =  getMultiAddress(context,null)
             //store keys in database
-            val device = DeviceNode(meshID = pid, privateKey = priKeyS, publicKey = pubKeyS, multicastAddress = multicastAddress, isMe = true)
+            val device = DeviceNode(meshID = pid, mac = macAddress, privateKey = priKeyS, publicKey = pubKeyS, multicastAddress = multicastAddress, isMe = true)
             deviceDb?.addDevice(device)
 
         }
@@ -87,26 +88,27 @@ open class Generator {
             return pid
         }
 
-        fun getMultiAddress(device: Device?, scanAddress: String?) : String{
+        fun getMultiAddress(context: Context, scanAddress: String?) : String {
             var address = ""
-            if(device != null && scanAddress != null){
-                val badAddresses = getBadMultiAddress(device).split("::")
+            if(scanAddress != null){
+                val device = Repository.getInstance(context).getMyDeviceInfo()
+                val badAddresses = getBadMultiAddress(context).split("::")
                 val scanAddresses = scanAddress.split("::")
 
                 if(!scanAddresses.contains(device.multicastAddress) && !badAddresses.contains(scanAddresses[0]) ){
-                    Log.d(TAG,"Generated address:  ${device.multicastAddress}")
+                    Log.d(TAG,"Using old address:  ${device.multicastAddress}")
 
                     return device.multicastAddress
                 }else{
                     while (true){
                         address = addressGen()
 
-                        if (badAddresses.contains(address) && scanAddresses.contains(address)){
+                        if (badAddresses.contains(address) || scanAddresses.contains(address)){
                             continue
                         }else{
                             Log.d(TAG,"Generated address:  $address")
-                            device.copy(multicastAddress = address)
-                            return device.multicastAddress
+                            Repository.getInstance(context).updateAddress(address)
+                            return address
                         }
                     }
 
@@ -137,14 +139,8 @@ open class Generator {
             return "230." + numberList.joinToString(separator = ".")
 
         }
-        fun getBadMultiAddress(device: Device) : String{
-            var addresses = device.multicastAddress
-            device.peers.forEach {peer ->
-                if(peer.multicastAddress.contains(".")){
-                    addresses += "::${peer.multicastAddress}"
-                }
-            }
-            return addresses
+        fun getBadMultiAddress(context: Context) : String{
+            return Repository.getInstance(context).getNearMultiAddresses().joinToString("::")
         }
 
         fun getPrivateKey() : PrivateKey{
@@ -163,7 +159,7 @@ open class Generator {
             return kf.generatePublic(ks)
         }
 
-        fun loadKeys(){
+        fun loadKeys(context: Context){
             val deviceDb = hixNetInstance?.deviceNodeDao()
             priKeyS = deviceDb?.getMyPrivateKey().toString()
             pubKeyS = deviceDb?.getMyPublicKey().toString()
@@ -172,7 +168,7 @@ open class Generator {
             Log.d(TAG," $pid,\n $pubKeyS")
 
             if(pid == "null"){
-                createKeys()
+                createKeys(context)
             }
         }
         private fun getMacAddress() : String {

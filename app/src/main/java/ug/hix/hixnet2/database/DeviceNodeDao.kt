@@ -3,6 +3,7 @@ package ug.hix.hixnet2.database
 import androidx.lifecycle.LiveData
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
+import ug.hix.hixnet2.util.Util
 
 @Dao
 interface DeviceNodeDao {
@@ -16,15 +17,14 @@ interface DeviceNodeDao {
     fun addDevice(device : DeviceNode)
 
     fun addDeviceWithConfig(device: List<DeviceNode>, wifiConfig: List<WifiConfig>){
+        addConfig(wifiConfig) //first so as to avoid null in flow
         addDevice(device)
-        addConfig(wifiConfig)
     }
     @Delete()
     fun removeDevice(device: DeviceNode)
 
     @Query("SELECT * FROM devicenode")
-    @Transaction
-    fun getAllDevices() : LiveData<List<DeviceNodeWithWifiConfig>>
+    fun getAllDevices() : List<DeviceNode>
 
     @Query("SELECT min(hops) FROM devicenode WHERE meshID LIKE :meshId")
     fun getMinHop(meshId: String) : Int?
@@ -38,7 +38,9 @@ interface DeviceNodeDao {
     @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0")
     fun getNearLinks() : List<DeviceNode>
 
-    @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0 AND meshID NOT IN (SELECT multicastAddress FROM devicenode WHERE meshID LIKE :meshId)")
+//    @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0 AND meshID NOT IN (SELECT multicastAddress FROM devicenode WHERE meshID LIKE :meshId)")
+//    fun getNearLinks(meshId: String) : List<DeviceNode>
+    @Query("SELECT * FROM devicenode WHERE multicastAddress LIKE '230.%' AND isMe = 0 AND meshID != :meshId")
     fun getNearLinks(meshId: String) : List<DeviceNode>
 
 //    @Query("SELECT * FROM devicenode WHERE master = 1")
@@ -68,6 +70,9 @@ interface DeviceNodeDao {
     @Query("SELECT publicKey FROM devicenode WHERE meshID LIKE :meshId")
     fun getNodePublicKey(meshId : String) : String
 
+    @Query("UPDATE devicenode SET multicastAddress = :address, modified = :modified WHERE isMe = 1")
+    fun updateAddress(address: String, modified : String = Util.currentDateTime())
+
     //advanced queries for relationship operation
     @Query("DELETE FROM fileseeder WHERE meshID LIKE :meshId")
     fun removeSeeder(meshId: String)
@@ -75,8 +80,12 @@ interface DeviceNodeDao {
     @Query("DELETE FROM devicenode WHERE multicastAddress LIKE :meshId")
     fun removeChildDevices(meshId: String)
 
-    @Query("SELECT * FROM devicenode WHERE status ORDER BY modified DESC LIMIT 1 ")
-    @Transaction
-    fun getDeviceUpdate(): Flow<DeviceNodeWithWifiConfig?>
+    @Query("SELECT * FROM devicenode WHERE isMe = 0 ORDER BY modified DESC LIMIT 1 ")
+    fun getDeviceUpdateFlow(): Flow<DeviceNode?>
 
+    @Query("SELECT multicastAddress FROM devicenode WHERE isMe = 1")
+    fun getNewAddressFlow(): Flow<String>
+
+    @Query("SELECT * FROM devicenode WHERE isMe = 0 AND meshID = :meshId AND multicastAddress = :multiAddress ORDER BY modified DESC LIMIT 1")
+    fun getDevice(meshId: String, multiAddress: String): DeviceNode?
 }

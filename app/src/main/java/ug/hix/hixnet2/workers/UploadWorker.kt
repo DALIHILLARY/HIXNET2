@@ -15,19 +15,19 @@ class UploadWorker(appContext: Context, workerParams: WorkerParameters) : Worker
     val TAG = javaClass.simpleName
     override fun doWork(): Result {
         try{
-            val repo = Repository(applicationContext)
+            val repo = Repository.getInstance(applicationContext)
             val CIDs = repo.getCIDs()
 //            val filesHashMap = MeshDaemon.filesHashMap
             val filePaths = inputData.getStringArray("filePaths")
             filePaths?.forEach { filepath ->
                 val file = File(filepath)
-                val name = file.name
-                val extension = file.extension
-                val size = (file.length()/ 1024).toInt() //in kilobytes
                 val encodedHash = Generator.getEncodedHash(file)
                 val CID = Base58.encode(encodedHash)
 
                 if(CID !in CIDs) {
+                    val name = file.name
+                    val extension = file.extension
+                    val size = (file.length()/ 1024).toInt() //in kilobytes
                     val fileObj = ug.hix.hixnet2.database.File(CID = CID,path = filepath, size = size, cloudName = name, extension = extension, modified = Util.currentDateTime())
                     repo.insertOrUpdateFile(fileObj)
 

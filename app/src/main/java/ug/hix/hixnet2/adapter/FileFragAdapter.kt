@@ -50,7 +50,7 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
         private var fileSize: TextView = fileView.findViewById(R.id.fileSize)
         private val fileModified: TextView   = fileView.findViewById(R.id.fileModifiedDate)
         private val fileOptionsMenu: TextView = fileView.findViewById(R.id.fileOptionsMenu)
-        private val repo = Repository(context)
+        private val repo = Repository.getInstance(context)
 
 
         fun bind(file: File){
@@ -85,7 +85,7 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
                         R.id.fileOpen -> {
                             runBlocking(Dispatchers.IO) {
                                 try{
-                                    val myFile = JFile(file.path)
+                                    val myFile = JFile(file.path!!)
                                     val intent = Intent(Intent.ACTION_VIEW)
                                     intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
                                     val uri = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

@@ -35,7 +35,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
     private val scope = CoroutineScope(Dispatchers.Default)
     val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     val device = MeshDaemon.device
-    val repo = Repository(mContext)
+    val repo = Repository.getInstance(mContext)
     private val addConfig = AddConfigs(mContext,repo)
 
 
@@ -74,7 +74,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
         val record = mutableMapOf<String,String>()
         record["service"] = serviceName
         record["connectInfo"] = "$SSID::$BSSID::$passPhrase::${device.multicastAddress}"
-        record["badMulticastAddr"] = Generator.getBadMultiAddress(device)
+        record["badMulticastAddr"] = Generator.getBadMultiAddress(mContext)
 
         val instanceName = "$SSID -> $BSSID->$passPhrase"
 
@@ -129,7 +129,7 @@ open class MeshServiceManager(context : Context, private val manager: WifiP2pMan
 
                         if(!macList.contains(connectInfo[1])){
                             addConfig.insertP2pConfig(connectInfo)
-                            if(device.multicastAddress == Generator.getMultiAddress(device,scanAddresses) && !connecting){
+                            if(device.multicastAddress == Generator.getMultiAddress(mContext,scanAddresses) && !connecting){
                                 connecting = true
                                 mWifiManager.reconnect()
                             }

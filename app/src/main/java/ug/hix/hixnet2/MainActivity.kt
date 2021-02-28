@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         runBlocking(Dispatchers.IO){
             Generator.getDatabaseInstance(this@MainActivity)
-            Generator.loadKeys()
+            Generator.loadKeys(this@MainActivity)
         }
 
         Handler().postDelayed({

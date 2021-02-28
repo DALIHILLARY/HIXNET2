@@ -22,7 +22,7 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
     private val notificationManager = mContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     override suspend fun doWork(): Result {
         return try{
-            val repo = Repository(applicationContext)
+            val repo = Repository.getInstance(applicationContext)
             val CID = inputData.getString("fileCID")
             val toMeshId = inputData.getString("fromMeshId")
             val expectedOffsets = inputData.getString("offsets")

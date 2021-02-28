@@ -5,15 +5,7 @@ import androidx.room.ForeignKey
 import ug.hix.hixnet2.util.Util
 
 @Entity(
-    primaryKeys = ["CID","meshID"],
-    foreignKeys = [
-        ForeignKey(
-            entity = File::class,
-            parentColumns = ["CID"],
-            childColumns = ["CID"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+    primaryKeys = ["CID","meshID"]
 )
 data class FileSeeder(
     val CID: String,
