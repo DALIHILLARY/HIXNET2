@@ -18,11 +18,14 @@ class Repository(val context : Context) {
     private val wifiDao = databaseInstance.wifiConfigDao()
     private val deviceDao = databaseInstance.deviceNodeDao()
 
-    fun getFiles() : LiveData<List<File>> {
+    fun getFilesLiveData() : LiveData<List<File>> {
         return fileDao.getAllFiles()
     }
-    fun getCloudFiles(): LiveData<List<FileName>> {
+    fun getCloudFilesLiveData(): LiveData<List<FileName>> {
         return fileDao.getUpdatedFileNameLiveData()
+    }
+    fun getFileNames() : List<FileName> {
+        return runBlocking(Dispatchers.IO) { fileDao.getFileNames()}
     }
     fun getFileByCid(cid: String) : File? {
         return runBlocking(Dispatchers.IO){fileDao.getFileByCid(cid)}
@@ -201,30 +204,35 @@ class Repository(val context : Context) {
             }
         }
     }
-
-    fun addWifiConfig(config: WifiConfig){
-        return wifiDao.addConfig(config)
+    fun activeDevicesLiveData(): LiveData<List<DeviceNode>> {
+        return deviceDao.activeDevicesLiveData()
     }
+    fun activeDevices(): List<DeviceNode> = runBlocking(Dispatchers.IO) { deviceDao.activeDevices() }
+
+    fun addWifiConfig(config: WifiConfig) {
+        return runBlocking(Dispatchers.IO) { wifiDao.addConfig(config) }
+    }
+
     fun getAllWifiConfig() : List<WifiConfig>{
-        return wifiDao.getAllConfig()
+        return runBlocking(Dispatchers.IO) {wifiDao.getAllConfig()}
     }
     fun getAllMac() : List<String> {
-        return wifiDao.getAllMac()
+        return runBlocking(Dispatchers.IO) { wifiDao.getAllMac() }
     }
     fun getAllWifiNetIds() : List<Int> {
-        return wifiDao.getAllNetId()
+        return runBlocking(Dispatchers.IO) { wifiDao.getAllNetId() }
     }
     fun getWifiConfigBySsid(ssid : String) : WifiConfig {
-        return wifiDao.getWifiConfigBySsid(ssid)
+        return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigBySsid(ssid) }
     }
     fun isWifiConfig(ssid: String) : Boolean {
-        return wifiDao.getWifiConfigBySsidList(ssid).isNotEmpty()
+        return runBlocking(Dispatchers.IO) {wifiDao.getWifiConfigBySsidList(ssid).isNotEmpty()}
     }
     fun getWifiConfigByMac(mac : String) : WifiConfig {
-        return wifiDao.getWifiConfigByMac(mac)
+        return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigByMac(mac) }
     }
     private fun getWifiConfigByMeshId(meshId: String) : WifiConfig {
-        return wifiDao.getWifiConfigByMeshId(meshId)
+        return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigByMeshId(meshId) }
     }
 
 

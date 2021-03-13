@@ -88,4 +88,10 @@ interface DeviceNodeDao {
 
     @Query("SELECT * FROM devicenode WHERE isMe = 0 AND meshID = :meshId AND multicastAddress = :multiAddress ORDER BY modified DESC LIMIT 1")
     fun getDevice(meshId: String, multiAddress: String): DeviceNode?
+
+    @Query("SELECT * FROM devicenode WHERE isMe = 0 AND status = 'ACTIVE' ORDER BY rName DESC, modified DESC")
+    fun activeDevicesLiveData(): LiveData<List<DeviceNode>>
+
+    @Query("SELECT * FROM devicenode WHERE isMe = 0 AND status = 'ACTIVE' ORDER BY rName DESC, modified DESC")
+    fun activeDevices() : List<DeviceNode>
 }

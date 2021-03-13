@@ -23,5 +23,6 @@ data class DeviceNode (
     val isMe  : Boolean = false,
     val version : String = "",
     val modified : String = Util.currentDateTime(),
-    val status : String = ""
+    val status : String = "",
+    val rName : String = ""
 ) : Serializable

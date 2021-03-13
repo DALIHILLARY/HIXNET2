@@ -9,6 +9,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Filter
+import android.widget.Filterable
 import android.widget.ImageView
 import androidx.appcompat.widget.PopupMenu
 import android.widget.TextView
@@ -32,7 +34,11 @@ import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.workers.SendFileWorker
 
-class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFragAdapter.FileFragViewHolder>(DIFF_CALLBACK) {
+class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFragAdapter.FileFragViewHolder>(DIFF_CALLBACK), Filterable {
+    private val repo = Repository.getInstance(context)
+    private var filteredFileList = listOf<File>()
+    private val fileList = repo.getAllFiles()
+    private val TAG = javaClass.simpleName
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FileFragViewHolder {
         val v = LayoutInflater.from(parent.context)
             .inflate(R.layout.file_item, parent,false)
@@ -50,7 +56,6 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
         private var fileSize: TextView = fileView.findViewById(R.id.fileSize)
         private val fileModified: TextView   = fileView.findViewById(R.id.fileModifiedDate)
         private val fileOptionsMenu: TextView = fileView.findViewById(R.id.fileOptionsMenu)
-        private val repo = Repository.getInstance(context)
 
 
         fun bind(file: File){
@@ -131,6 +136,36 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
             }
         }
 
+    }
+    override fun getFilter(): Filter {
+        return object : Filter() {
+            override fun performFiltering(constraint: CharSequence?): FilterResults {
+                val charSearch = constraint.toString()
+                if(charSearch.isEmpty()){
+                    filteredFileList = fileList
+                }else{
+                    val resultSet = mutableSetOf<File>()
+                    fileList.forEach {
+                        val cid = it.CID
+                        val name = it.cloudName
+                        if(cid.contains(charSearch)) resultSet.add(it)
+                        if(name?.contains(charSearch) == true) resultSet.add(it)
+                    }
+                    filteredFileList = resultSet.toList()
+                }
+                val filterResults = FilterResults()
+                filterResults.values = filteredFileList
+                filterResults.count = filteredFileList.size
+
+                return filterResults
+            }
+            @Suppress("UNCHECKED_CAST")
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                filteredFileList = results?.values as List<File>
+                submitList(filteredFileList)
+            }
+
+        }
     }
     companion object {
         val DIFF_CALLBACK = object : DiffUtil.ItemCallback<File>(){

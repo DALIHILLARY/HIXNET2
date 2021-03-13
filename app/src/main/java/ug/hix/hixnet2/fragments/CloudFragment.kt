@@ -23,7 +23,6 @@ class CloudFragment(private val mContext: Context) : Fragment() {
     lateinit var cloudFileViewModel: CloudFileViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        cloudAdapter.updateCloudFiles(MeshDaemon.filesHashMap)
         retainInstance = true
     }
     override fun onCreateView(

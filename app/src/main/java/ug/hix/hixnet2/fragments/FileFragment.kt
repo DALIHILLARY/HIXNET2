@@ -5,30 +5,24 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.bumptech.glide.Glide
 import ug.hix.hixnet2.R
 import kotlinx.android.synthetic.main.fragment_files.*
 import droidninja.filepicker.*
-import droidninja.filepicker.utils.ContentUriUtils
 
 import ug.hix.hixnet2.adapter.FileFragAdapter
 import ug.hix.hixnet2.database.File
 import ug.hix.hixnet2.util.OnSwipeTouchListener
 import ug.hix.hixnet2.viewmodel.FileViewModel
-import ug.hix.hixnet2.workers.SendFileWorker
-import ug.hix.hixnet2.workers.UploadWorker
+
 
 class FileFragment(val mContext: Context) : Fragment() {
     var mediaUri = arrayListOf<Uri>()
@@ -88,6 +82,16 @@ class FileFragment(val mContext: Context) : Fragment() {
                 .showGifs(true)
                 .pickPhoto(this)
         }
+        file_search.setOnQueryTextListener( object: SearchView.OnQueryTextListener{
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                fileAdapter.filter.filter(newText)
+                return false
+            }
+        })
     }
 
 

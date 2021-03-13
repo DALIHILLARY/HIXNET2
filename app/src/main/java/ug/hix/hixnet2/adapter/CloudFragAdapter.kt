@@ -1,7 +1,6 @@
 package ug.hix.hixnet2.adapter
 
 import android.content.Context
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,10 +19,11 @@ import ug.hix.hixnet2.database.FileName
 import ug.hix.hixnet2.repository.Repository
 
 class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, CloudFragAdapter.CloudViewHolder>(DIFF_CALLBACK), Filterable{
-    val repo = Repository.getInstance(mContext)
-    var filteredFileNameList = listOf<FileName>()
-    val fileNameList =  repo.getCloudFiles().value
-    val TAG = javaClass.simpleName
+    private val repo = Repository.getInstance(mContext)
+    private var filteredFileNameList = listOf<FileName>()
+    private val fileNameList =  repo.getFileNames()
+    private val TAG = javaClass.simpleName
+
     inner class CloudViewHolder(cloudView: View) : RecyclerView.ViewHolder(cloudView){
         private val cloudName: TextView = cloudView.findViewById(R.id.fileName)
         private val cloudModified: TextView = cloudView.findViewById(R.id.fileModifiedDate)
@@ -75,10 +75,10 @@ class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, Cl
             override fun performFiltering(constraint: CharSequence?): FilterResults {
                 val charSearch = constraint.toString()
                 if(charSearch.isEmpty()){
-                    filteredFileNameList = fileNameList!!
+                    filteredFileNameList = fileNameList
                 }else{
                     val resultSet = mutableSetOf<FileName>()
-                    fileNameList?.forEach {
+                    fileNameList.forEach {
                         val cid = it.CID
                         if(cid.contains(charSearch)){
                             resultSet.add(it)
@@ -87,7 +87,7 @@ class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, Cl
                         if(name.replace("-"," ").contains(charSearch.toLowerCase())){
                             resultSet.add(it)
                         }
-                        
+
                     }
                     filteredFileNameList = resultSet.toList()
                 }

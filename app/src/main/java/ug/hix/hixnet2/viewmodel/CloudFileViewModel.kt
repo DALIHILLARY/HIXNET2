@@ -10,7 +10,7 @@ class CloudFileViewModel : ViewModel() {
     fun getCloudFiles(context: Context) : LiveData<List<FileName>> {
         val repository = Repository.getInstance(context)
 
-        return repository.getCloudFiles()
+        return repository.getCloudFilesLiveData()
     }
 
 }

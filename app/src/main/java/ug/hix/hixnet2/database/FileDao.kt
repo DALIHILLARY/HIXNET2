@@ -3,6 +3,7 @@ package ug.hix.hixnet2.database
 import androidx.lifecycle.LiveData
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
+import ug.hix.hixnet2.util.Util
 
 @Dao
 interface FileDao {
@@ -40,8 +41,8 @@ interface FileDao {
     @Query("SELECT * FROM filename")
     fun getAllFileNames(): List<FileName>
 
-    @Query("UPDATE filename SET status = :status, modified_by = :meshId WHERE CID = :cid")
-    fun updateFileNameStatus(cid: String, meshId: String, status: String)
+    @Query("UPDATE filename SET status = :status, modified_by = :meshId, modified = :modified WHERE CID = :cid")
+    fun updateFileNameStatus(cid: String, meshId: String, status: String, modified: String = Util.currentDateTime())
 
     @Query("SELECT * FROM fileseeder WHERE CID = :cid AND meshID = :meshId")
     fun getFileSeeder(cid: String, meshId: String) : FileSeeder?
@@ -74,6 +75,9 @@ interface FileDao {
 
     @Query("SELECT * FROM filename WHERE status != 'Deleted' ORDER BY modified DESC")
     fun getUpdatedFileNameLiveData() : LiveData<List<FileName>>
+
+    @Query("SELECT * FROM filename WHERE status != 'Deleted' ORDER BY modified DESC")
+    fun getFileNames() : List<FileName>
 
     @Query("SELECT * FROM fileseeder ORDER BY modified DESC LIMIT 1")
     fun getUpdatedFileSeederFlow(): Flow<FileSeeder?>

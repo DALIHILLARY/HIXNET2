@@ -24,12 +24,14 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat.startActivity
+import com.bumptech.glide.load.model.stream.BaseGlideUrlLoader
 import com.knexis.hotspot.Hotspot
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.collect
 import ug.hix.hixnet2.cyphers.Generator
+import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.models.PFileName
@@ -41,6 +43,7 @@ import ug.hix.hixnet2.util.AddConfigs
 import java.lang.Thread.sleep
 import kotlin.coroutines.CoroutineContext
 
+@ExperimentalCoroutinesApi
 class ConnectionMonitor(private val mContext: Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel)  : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener{
     private val TAG = javaClass.simpleName
     private val cm = mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -59,11 +62,14 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
     private var LAST_DISCON_TIMESYNC = 0L
     private val SYNCTIME = 500L
 
+    private val isScanning = BroadcastChannel<Pair<Boolean,Long>>(1)
+    private val serviceRegister = BroadcastChannel<Boolean>(1)
 
     private var ssid : String = ""
     private var bssid : String = ""
     private var passPhrase : String = ""
 
+    private lateinit var startJob : Job
     private lateinit var wifiScanResults : List<ScanResult>
     private lateinit var filteredResults : List<ScanResult>
     private val intentFilter = IntentFilter().apply {
@@ -282,24 +288,17 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         Log.d(TAG,"Starting wifi card")
     }
 
-    fun isWiFiEnabled(){
-        //register broadcast if not registered
-        if(!isWifiRegistered){
-            registerWifiBroadcast()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
-                registerNetworkCallback()
+
+    private suspend fun isWiFiEnabled(){
+        withContext(Dispatchers.IO) {
+            if (hotspotIsEnabled()) {
+                Hotspot(mContext).stop()
             }
-
+            if(!mWifiManager.isWifiEnabled){
+                enableWiFi()
+            }
+            delay(2000L)
         }
-
-        if (hotspotIsEnabled()) {
-            Hotspot(mContext).stop()
-        }
-        if(!mWifiManager.isWifiEnabled){
-            enableWiFi()
-        }
-        sleep(2000L)
-        createGroup()
     }
 
     fun disableWiFi() {
@@ -319,14 +318,16 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         return Hotspot(mContext).isON
     }
     private fun filterResults(){
-        filteredResults = wifiScanResults.filter { it.SSID.startsWith("DIRECT") or it.SSID.startsWith("HixNet") }
+        filteredResults = wifiScanResults.filter { it.SSID.startsWith("DIRECT") or it.SSID.startsWith("HixNet") or it.SSID.startsWith("KALI")}
         if(filteredResults.isNotEmpty()){
+            Log.d(TAG,"filtered: $filteredResults")
             //there are Mesh nodes in surrounding thus go into hotspot mode
             /**try to connect to surrounding nodes
              * with the non-p2p nodes as highest priority
              */
             val (nonP2pHotspots,p2pHotspots) = filteredResults.partition{it.SSID.startsWith("HixNet")}
             if(nonP2pHotspots.isNotEmpty()){
+                Log.d(TAG,"NonP2p: $nonP2pHotspots")
                 GlobalScope.launch{
                     val macList = repo.getAllMac()
                     var firstDevice = false
@@ -345,17 +346,26 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                         }
                     }
                 }
-            }else{
-                if(p2pHotspots.isNotEmpty()){
-                    GlobalScope.launch {
-                        nonP2pHotspots.forEach {
-                            if(!repo.isWifiConfig(it.SSID)){
-                                registerService()
-                            }
-                        }
+            }
+            if(p2pHotspots.isNotEmpty()){
+                runBlocking {isScanning.send(Pair(false,0L))}
+                val wifiConfigs = repo.getAllWifiConfig().map{ "${it.ssid}::::${it.mac}" }
+                for(device in p2pHotspots.map{"${it.SSID}::::${it.BSSID}"}){
+                    if(device !in wifiConfigs){
+                        runBlocking {serviceRegister.send(true) }
+                        break
                     }
                 }
+//                p2pHotspots.forEach {
+//                    Log.d(TAG,"NON FOUND  device $it  ::: ${!repo.isWifiConfig(it.SSID)}")
+//                    if(!repo.isWifiConfig(it.SSID)){
+//                        Log.d(TAG,"REGISTER SERVICE REACHED")
+//                        registerService()
+//                    }
+//                }
             }
+        }else{
+            runBlocking{ isScanning.send(Pair(true,15000L))}
         }
     }
     @SuppressLint("MissingPermission")
@@ -365,6 +375,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             override fun onSuccess() {
                 isDiscovering = false
                 if(terminate){
+                    serviceKiller = false
                     return
                 }
                 Log.d(TAG,"successfully removed service request")
@@ -430,7 +441,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 delay(1000)
                 deactivateService()  //unregister the service
                 serviceKiller = true //terminate service discover
-                val macList = repo.getAllMac()
+//                val macList = repo.getAllMac()
                 val devices = foundDevices.toList()
 //                var connecting = false
                 devices.forEach{
@@ -449,13 +460,15 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     }
                 }
                 foundDevices.clear()
+                isScanning.send(Pair(true,15000L))
+                serviceRegister.send(false)
 
             }
         }
         manager.setDnsSdResponseListeners(channel, serviceListener, txtListener)
     }
     @SuppressLint("MissingPermission")
-    private fun registerService(){
+    private suspend fun registerService(){
         val record = mutableMapOf<String,String>()
         val device = repo.getMyDeviceInfo()
         record["service"] = serviceName
@@ -477,7 +490,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             startServiceDiscovery()
         }
     }
-    private fun startServiceDiscovery(){
+    private suspend fun startServiceDiscovery(){
         serviceKiller = false
 
         //set up service listeners
@@ -487,14 +500,16 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
         }
 
-        GlobalScope.launch {
-            while(true){
-                if(serviceKiller){
-                    serviceDiscovery(true)
-                    break
+        coroutineScope{
+            launch {
+                while(isActive){
+                    if(serviceKiller){
+                        serviceDiscovery(true)
+                        break
+                    }
+                    serviceDiscovery()
+                    delay(2000L)
                 }
-                serviceDiscovery()
-                delay(2000L)
             }
         }
 
@@ -540,7 +555,6 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         removeGroup()
         manager.createGroup(channel,object : WifiP2pManager.ActionListener{
             override fun onSuccess() {
-                isMaster = true
                 sleep(1000)
                 manager.requestGroupInfo(channel,this@ConnectionMonitor)
                 Log.d(TAG,"Group started")
@@ -561,30 +575,99 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
         })
     }
-    fun stop(){
+    suspend fun stop(){
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             unregisterNetworkCallback()
         unregisterWifiBroadcast()
         removeGroup()
+        serviceKiller = true
+        isScanning.send(Pair(false,0L))
+        serviceRegister.send(false)
+        if (startJob.isActive) startJob.cancel()
     }
 
     override fun onConnectionInfoAvailable(info: WifiP2pInfo?) {
 //        TODO("Not yet implemented")
     }
 
-    @ExperimentalCoroutinesApi
+    @FlowPreview
+    suspend fun start() {
+        isWiFiEnabled()
+        while(true){
+            Log.d(TAG,"ISmASTER: $isMaster")
+            if(isMaster) break
+            createGroup()
+            delay(2000L)
+        }
+        //register broadcast if not registered
+        if(!isWifiRegistered){
+            registerWifiBroadcast()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
+                registerNetworkCallback()
+            }
+        }
+        var wifiScanJob : Job? = null
+        var serviceRegisterJob: Job? = null
+        startJob = GlobalScope.launch {
+            launch{
+                isScanning.asFlow().collect{
+                    Log.d(TAG,"WIFI scan channel command: ${it.first}  time: ${it.second}")
+                    wifiScanJob?.let { job ->
+                        if(job.isActive) job.cancel()
+                    }
+                    if(it.first)
+                        wifiScanJob = GlobalScope.launch {
+                            while(isActive){
+                                wifiScan()
+                                delay(it.second)
+                            }
+                        }
+                }
+            }
+            delay(1000L) //wait for scan channel to open
+            isScanning.send(Pair(true,4000L))
+            launch{
+                serviceRegister.asFlow().collect {
+                    Log.d(TAG,"Service register channel command: $it")
+                    serviceRegisterJob?.let{ job ->
+                        if(job.isActive) job.cancel()
+                    }
+                    if(it)
+                        serviceRegisterJob = GlobalScope.launch {
+                            try{
+                                withTimeout(5*60000L){
+                                    registerService()
+                                }
+                            }catch(e: TimeoutCancellationException){
+                                Log.d(TAG,"register && discover service timeout")
+                                serviceKiller = true
+                                deactivateService()
+                                isScanning.send(Pair(true,15000L))
+
+                            }
+
+                        }
+                }
+            }
+        }
+
+    }
+
     override fun onGroupInfoAvailable(group: WifiP2pGroup?) {
         if(group != null){
             if(group.isGroupOwner){
+                isMaster = true
                 ssid = group.networkName
                 passPhrase = group.passphrase
                 bssid   = Repository.getInstance(mContext).getMyDeviceInfo().mac
+
+                repo.addWifiConfig(WifiConfig(MeshDaemon.device.meshID,ssid = ssid,mac = bssid,passPhrase = passPhrase,connAddress = MeshDaemon.device.multicastAddress))
 //                Licklider.start(mContext).receiver(device.multicastAddress)
             }
-            Log.d("OncreateListner","group available")
+            Log.d("onCreateListener","group available")
 
         }else{
-            Log.d("OncreateListner","No group available")
+            Log.d("onCreateListener","No group available")
         }
     }
     companion object {

@@ -232,8 +232,7 @@ class Licklider(private val mContext: Context){
                         }
                     }
                 } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the name listener")
-                    e.printStackTrace()
+                    Log.e(TAG, "Something happened to the name listener",e)
                 }
             }
             launch {
@@ -246,8 +245,7 @@ class Licklider(private val mContext: Context){
                     }
 
                 } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the filename listener")
-                    e.printStackTrace()
+                    Log.e(TAG, "Something happened to the filename listener",e)
                 }
             }
             launch {
@@ -260,8 +258,7 @@ class Licklider(private val mContext: Context){
                         }
                     }
                 } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the fileSeeder listener")
-                    e.printStackTrace()
+                    Log.e(TAG, "Something happened to the fileSeeder listener",e)
                 }
             }
             launch {
@@ -296,7 +293,7 @@ class Licklider(private val mContext: Context){
 
                     }
                 } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the device listener")
+                    Log.e(TAG, "Something happened to the device listener",e)
                 }
             }
 
@@ -438,7 +435,7 @@ class Licklider(private val mContext: Context){
         p2pSocket.leaveGroup(InetSocketAddress(group,PORT),p2p0)
         wlanSocket.leaveGroup(InetSocketAddress(group,PORT),wlan0)
         if (receiverJob.isActive)
-            receiverJob.cancel()
+            receiverJob.cancelChildren()
     }
 
     private suspend fun forward(mPacket: Packet){
@@ -516,7 +513,7 @@ class Licklider(private val mContext: Context){
 //                }
 
         }catch(e: Exception){
-            Log.e(TAG,"fAILED TO HANDLE")
+            Log.e(TAG,"fAILED TO HANDLE",e)
             e.printStackTrace()
         }
 
@@ -663,7 +660,7 @@ class Licklider(private val mContext: Context){
                                 loadData(message = deviceSend, toMeshId = it.device.meshID)
                             }
                         }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello devices")
+                            Log.e(TAG, "Something happened to the ack hello devices",e)
                             e.printStackTrace()
                         }
                         try{
@@ -672,7 +669,7 @@ class Licklider(private val mContext: Context){
                                 loadData(pFileSeeder,it.modified_by)
                             }
                         }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello file seeder")
+                            Log.e(TAG, "Something happened to the ack hello file seeder",e)
                             e.printStackTrace()
                         }
                         try{
@@ -681,7 +678,7 @@ class Licklider(private val mContext: Context){
                                 loadData(pFileName,it.modified_by)
                             }
                         }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello filename ")
+                            Log.e(TAG, "Something happened to the ack hello filename ",e)
                             e.printStackTrace()
                         }
                         try{
@@ -690,7 +687,7 @@ class Licklider(private val mContext: Context){
                                 loadData(pName,it.modified_by)
                             }
                         }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello name")
+                            Log.e(TAG, "Something happened to the ack hello name",e)
                             e.printStackTrace()
                         }
                     }

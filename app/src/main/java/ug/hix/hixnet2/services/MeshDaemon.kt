@@ -23,14 +23,17 @@ import ug.hix.hixnet2.util.NotifyChannel
 import kotlin.concurrent.thread
 
 class MeshDaemon : LifecycleService() {
+    @ExperimentalCoroutinesApi
     private lateinit var connMonitor : ConnectionMonitor
-    private lateinit var cardManager : NetworkCardManager
     private lateinit var manager : WifiP2pManager
     private lateinit var channel : WifiP2pManager.Channel
     private lateinit var repo : Repository
+    private lateinit var meshDaemon: Job
 
     val TAG = javaClass.simpleName
+    var stopScan = false
 
+    @ExperimentalCoroutinesApi
     override fun onCreate() {
         super.onCreate()
         repo = Repository.getInstance(applicationContext)
@@ -51,16 +54,15 @@ class MeshDaemon : LifecycleService() {
 
     }
 
+    @FlowPreview
     @ExperimentalCoroutinesApi
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        GlobalScope.launch(Dispatchers.Default){
+        meshDaemon = GlobalScope.launch(Dispatchers.Default){
             isServiceRunning = true
-
 
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
                 NotifyChannel.createNotificationChannel(this@MeshDaemon)
-
             }
             val notificationIntent = Intent(this@MeshDaemon,HomeActivity::class.java)
             val pendingIntent = PendingIntent.getActivity(this@MeshDaemon,0,notificationIntent,0)
@@ -83,35 +85,35 @@ class MeshDaemon : LifecycleService() {
 //            }
 
 //            cardManager.isWiFiEnabled()
-            connMonitor.isWiFiEnabled()
             launch {
-                Repository.getInstance(this@MeshDaemon).getNewAddressFlow().collect {
+                connMonitor.start()
+            }
+            launch {
+                repo.getNewAddressFlow().collect {
                     Log.d(TAG,"New address: $it")
                     Licklider.start(this@MeshDaemon).receiver(it)
                 }
             }
-            launch{
-                while(true){
-                    Log.d(TAG,"wifi scan initiated")
-                    connMonitor.wifiScan()
-                    delay(4000L)
-                }
-            }
+
         }
         return START_STICKY
     }
 
+    @ExperimentalCoroutinesApi
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
+        meshDaemon.cancelChildren()
 //        cardManager.stop()
-        connMonitor.stop()
-        thread {
-            val netIds = repo.getAllWifiNetIds()
-            netIds.forEach { netId ->
-                cardManager.mWifiManager.disableNetwork(netId)
-            }
+        runBlocking {
+            connMonitor.stop()
         }
+//        thread {
+//            val netIds = repo.getAllWifiNetIds()
+//            netIds.forEach { netId ->
+//                cardManager.mWifiManager.disableNetwork(netId)
+//            }
+//        }
 
     }
 
@@ -119,7 +121,6 @@ class MeshDaemon : LifecycleService() {
     companion object {
         var isServiceRunning = false
         lateinit var device : DeviceNode
-        var filesHashMap = mutableMapOf<String,MutableMap<String,MutableList<String>>>()
 
         fun startService( context: Context){
             if(!isServiceRunning){
