@@ -10,6 +10,9 @@ interface WifiConfigDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addConfig( config : WifiConfig)
 
+    @Query("SELECT * FROM wificonfig LIMIT 1")
+    fun getMyConfig() : WifiConfig
+
     @Query("SELECT * FROM wificonfig")
     fun getAllConfig() : List<WifiConfig>
 
@@ -20,7 +23,7 @@ interface WifiConfigDao {
     fun getAllNetId() : List<Int>
 
     @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
-    fun getWifiConfigBySsid(ssid : String) : WifiConfig
+    fun getWifiConfigBySsid(ssid : String) : WifiConfig?
 
     @Query("SELECT netId FROM wificonfig WHERE ssid = :ssid")
     fun getWifiNetId(ssid : String) : Int

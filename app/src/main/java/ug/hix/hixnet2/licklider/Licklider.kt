@@ -469,6 +469,7 @@ class Licklider(private val mContext: Context){
         val repo = Repository.getInstance(mContext)
         return if (packetType.endsWith("update",true)){
            repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
+//            repo.getNearLinks()  //TEST get all the multiaddress with digits
         }else{
             if(packetType == "ACK"){
 //                TODO("get address nearest with file")

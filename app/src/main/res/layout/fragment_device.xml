@@ -11,7 +11,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:focusable="true"
-            android:focusableInTouchMode="true">
+            android:focusableInTouchMode="true" android:id="@+id/deviceLayout">
         <androidx.appcompat.widget.SearchView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -50,26 +50,26 @@
                     android:orientation="vertical"
                     android:layout_gravity="end"
                     android:gravity="center" tools:ignore="UselessParent">
-                <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/upload"
-                        android:textStyle="bold"
-                />
+                <!--                <TextView-->
+                <!--                        android:layout_width="wrap_content"-->
+                <!--                        android:layout_height="wrap_content"-->
+                <!--                        android:text="@string/upload"-->
+                <!--                        android:textStyle="bold"-->
+                <!--                />-->
                 <ImageView
                         android:layout_width="40dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:src="@drawable/pdf"
+                        android:src="@drawable/qrcode"
                         tools:ignore="ContentDescription"
-                        android:id="@+id/uploadDoc"
+                        android:id="@+id/device_details"
                 />
 
                 <TextView
                         android:layout_width="40dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/Docs"
+                        android:text="@string/invite"
                         android:textStyle="italic" android:textSize="12sp"
 
                 />
@@ -77,15 +77,15 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_marginTop="10dp"
-                        android:src="@drawable/media"
-                        android:id="@+id/uploadMedia"
+                        android:src="@drawable/qrcodescan"
+                        android:id="@+id/device_scan"
                         tools:ignore="ContentDescription"
                 />
                 <TextView
                         android:layout_width="40dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/media"
+                        android:text="@string/scan"
                         android:textStyle="italic" android:textSize="12sp"
                 />
 

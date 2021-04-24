@@ -65,6 +65,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity
+                android:name=".CaptureActivity"
+                android:screenOrientation="portrait"
+                android:stateNotNeeded="true"
+                android:windowSoftInputMode="stateAlwaysHidden"/>
 
         <service android:name=".services.MeshDaemon"/>
         <service android:name="androidx.work.impl.foreground.SystemForegroundService"

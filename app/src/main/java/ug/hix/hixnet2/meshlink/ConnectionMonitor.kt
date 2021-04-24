@@ -19,6 +19,8 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
@@ -173,76 +175,79 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
     }
     private fun sendHello() {
+        sleep(1000L)
         //determine wifi type direct or normal fro ssid
         val conSSID = mWifiManager.connectionInfo.ssid
+        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"KALI HIX")) {
+            val connAddress = repo.getWifiConfigBySsid(conSSID)?.connAddress
+//            val connAddress = repo.getMyDeviceInfo().meshID  //TESTING
+            connAddress?.let{
+                GlobalScope.launch {
+                    val licklider = Licklider.start(mContext)
+                    licklider.loadData("HELLO",connAddress)
 
-        if(conSSID.startsWith("DIRECT") || conSSID.startsWith("HIXNET")) {
-            val connAddress = repo.getWifiConfigBySsid(conSSID).connAddress
+                    //send all tables to the master device
+                    val fileSeeders = repo.getAllFileSeeders()
+                    val fileNames = repo.getAllFileNames()
+                    val names = repo.getAllNames()
+                    val devices = repo.getAllDevices()
+                    try{
+                        devices.forEach {
+                            val deviceSend = DeviceNode(
+                                meshID = MeshDaemon.device.meshID,
+                                peers = listOf(
+                                    DeviceNode(
+                                        meshID = it.device.meshID,
+                                        Hops = it.device.hops,
+                                        macAddress = it.wifiConfig.mac,
+                                        publicKey = it.device.publicKey,
+                                        hasInternetWifi = it.device.hasInternetWifi,
+                                        wifi = it.wifiConfig.ssid,
+                                        passPhrase = it.wifiConfig.passPhrase,
+                                        version = it.device.version,
+                                        status = it.device.status,
+                                        modified = it.device.modified
+                                    )
 
-            GlobalScope.launch {
-                val licklider = Licklider.start(mContext)
-                licklider.loadData("HELLO",connAddress)
-
-                //send all tables to the master device
-                val fileSeeders = repo.getAllFileSeeders()
-                val fileNames = repo.getAllFileNames()
-                val names = repo.getAllNames()
-                val devices = repo.getAllDevices()
-                try{
-                    devices.forEach {
-                        val deviceSend = DeviceNode(
-                            meshID = MeshDaemon.device.meshID,
-                            peers = listOf(
-                                DeviceNode(
-                                    meshID = it.device.meshID,
-                                    Hops = it.device.hops,
-                                    macAddress = it.wifiConfig.mac,
-                                    publicKey = it.device.publicKey,
-                                    hasInternetWifi = it.device.hasInternetWifi,
-                                    wifi = it.wifiConfig.ssid,
-                                    passPhrase = it.wifiConfig.passPhrase,
-                                    version = it.device.version,
-                                    status = it.device.status,
-                                    modified = it.device.modified
                                 )
-
                             )
-                        )
-                        licklider.loadData(message = deviceSend, toMeshId = it.device.meshID)
+                            licklider.loadData(message = deviceSend, toMeshId = it.device.meshID)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the hello devices")
+                        e.printStackTrace()
                     }
-                }catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the hello devices")
-                    e.printStackTrace()
-                }
-                try{
-                    fileSeeders.forEach {
-                        val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
-                        licklider.loadData(pFileSeeder,it.modified_by)
+                    try{
+                        fileSeeders.forEach {
+                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
+                            licklider.loadData(pFileSeeder,it.modified_by)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the hello file seeder")
+                        e.printStackTrace()
                     }
-                }catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the hello file seeder")
-                    e.printStackTrace()
-                }
-                try{
-                    fileNames.forEach {
-                        val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
-                        licklider.loadData(pFileName,it.modified_by)
+                    try{
+                        fileNames.forEach {
+                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
+                            licklider.loadData(pFileName,it.modified_by)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the hello filename ")
+                        e.printStackTrace()
                     }
-                }catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the hello filename ")
-                    e.printStackTrace()
-                }
-                try{
-                    names.forEach {
-                        val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
-                        licklider.loadData(pName,it.modified_by)
+                    try{
+                        names.forEach {
+                            val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
+                            licklider.loadData(pName,it.modified_by)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the hello name")
+                        e.printStackTrace()
                     }
-                }catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the hello name")
-                    e.printStackTrace()
-                }
 
+                }
             }
+
         }
 //                                else{
 //                                    hasInternet = true
@@ -271,19 +276,23 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         mWifiManager.startScan()
     }
     private fun enableWiFi() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q){
             mWifiManager.isWifiEnabled = true
+        }
         else{
-            val dialog = Dialog(mContext)
-            dialog.setTitle("Please switch on wifi")
-            dialog.setCanceledOnTouchOutside(true)
-            dialog.show()
-            sleep(4000)
-            if(dialog.isShowing){
-                dialog.dismiss()
-                val panelIntent = Intent(Settings.Panel.ACTION_WIFI)
-                startActivity(mContext,panelIntent,null)
-            }
+            Handler(Looper.getMainLooper()).post{
+                  val dialog = Dialog(mContext)
+                  dialog.setTitle("Please switch on wifi")
+                  dialog.setCanceledOnTouchOutside(true)
+                  dialog.show()
+                  sleep(4000)
+                  if(dialog.isShowing){
+                      dialog.dismiss()
+                      val panelIntent = Intent(Settings.Panel.ACTION_WIFI)
+                      startActivity(mContext,panelIntent,null)
+                  }
+          }
+
         }
         Log.d(TAG,"Starting wifi card")
     }
@@ -424,6 +433,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             Log.d(TAG, "Found Device  $instanceName")
         }
         val txtListener = WifiP2pManager.DnsSdTxtRecordListener { _, record, _ ->
+            Log.d(TAG,"Service name :   ${record["service"]}  actualName:   $serviceName")
             if(record["service"] == serviceName){
                 val result = record["connectInfo"]
                 val scanMulticastAddresses = record["badMulticastAddresses"]
@@ -469,36 +479,34 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
     }
     @SuppressLint("MissingPermission")
     private suspend fun registerService(){
-        val record = mutableMapOf<String,String>()
         val device = repo.getMyDeviceInfo()
-        record["service"] = serviceName
-        record["connectInfo"] = "$ssid::$bssid::$passPhrase::${device.multicastAddress}::${device.meshID}"
-        record["badMulticastAddresses"] = Generator.getBadMultiAddress(mContext)
+        val record : Map<String, String> = mapOf(
+            "service" to serviceName,
+            "connectInfo" to "$ssid::$bssid::$passPhrase::${device.multicastAddress}::${device.meshID}",
+            "badMulticastAddresses" to Generator.getBadMultiAddress(mContext)
+        )
         //clear any old registered services
         deactivateService()
+        delay(1000L)
+        var registerSuccess = false
         val serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(ssid,"_TTP._udp",record)
         manager.addLocalService(channel,serviceInfo, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
+                if(!isDiscovering){
+                    registerSuccess = true
+                }
                 Log.d(TAG,"Service Started successfully")
             }
             override fun onFailure(reason: Int) {
                 Log.e(TAG, "Failed to Create service ERROR: $reason")
             }
         })
-//        TODO("AND time out to this")
-        if(!isDiscovering){
-            startServiceDiscovery()
-        }
+        delay(2000L)
+        if(registerSuccess) startServiceDiscovery()
+
     }
     private suspend fun startServiceDiscovery(){
         serviceKiller = false
-
-        //set up service listeners
-        if(!setResponders){
-            setResponders = true
-            setupDnsResponders()
-
-        }
 
         coroutineScope{
             launch {
@@ -606,6 +614,13 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 registerNetworkCallback()
             }
         }
+        //set up service listeners
+        if(!setResponders){
+            setResponders = true
+            setupDnsResponders()
+            delay(1000L)
+
+        }
         var wifiScanJob : Job? = null
         var serviceRegisterJob: Job? = null
         startJob = GlobalScope.launch {
@@ -635,7 +650,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     if(it)
                         serviceRegisterJob = GlobalScope.launch {
                             try{
-                                withTimeout(5*60000L){
+                                withTimeout( 2*60000L){
                                     registerService()
                                 }
                             }catch(e: TimeoutCancellationException){

@@ -222,7 +222,7 @@ class Repository(val context : Context) {
     fun getAllWifiNetIds() : List<Int> {
         return runBlocking(Dispatchers.IO) { wifiDao.getAllNetId() }
     }
-    fun getWifiConfigBySsid(ssid : String) : WifiConfig {
+    fun getWifiConfigBySsid(ssid : String) : WifiConfig? {
         return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigBySsid(ssid) }
     }
     fun isWifiConfig(ssid: String) : Boolean {
@@ -233,6 +233,9 @@ class Repository(val context : Context) {
     }
     private fun getWifiConfigByMeshId(meshId: String) : WifiConfig {
         return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigByMeshId(meshId) }
+    }
+    fun getMyWifiConfig() : WifiConfig {
+        return runBlocking(Dispatchers.IO) { wifiDao.getMyConfig() }
     }
 
 

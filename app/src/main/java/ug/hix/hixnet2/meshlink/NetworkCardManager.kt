@@ -116,10 +116,12 @@ class NetworkCardManager(context : Context, manager: WifiP2pManager, channel: Wi
                                     peer.wifi == conSSID
                                 }?.multicastAddress
                                 if(address == null){
-                                    address = repo.getWifiConfigBySsid(conSSID).connAddress
+                                    address = repo.getWifiConfigBySsid(conSSID)?.connAddress
                                 }
                                 launch(coroutineContext) {
-                                    licklider.loadData(device,address) //hello request to host
+                                    if (address != null) {
+                                        licklider.loadData(device,address)
+                                    } //hello request to host
                                 }
 
 

@@ -1,5 +1,6 @@
 package ug.hix.hixnet2.util
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -20,14 +21,14 @@ import java.lang.Thread.sleep
 import java.util.*
 
 class AddConfigs(private val context: Context,private val repo: Repository) {
-    lateinit var wifiConfig : WifiConfig
+    private lateinit var wifiConfig : WifiConfig
     private val mWifiConfig = WifiConfiguration()
     private val mWifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val TAG = javaClass.simpleName
     fun insertNonP2pConfig(device : ScanResult) {
         val password = device.SSID.drop(6).reversed()
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
-            insert10(context,null,device)
+            insert10(context,null,device,null)
             val netId = (1000 + Random().nextInt(1000 -1))
             wifiConfig = WifiConfig(netId = netId,ssid =device.SSID,mac = device.BSSID,passPhrase = password,connAddress = "address",meshID = "testing")
 
@@ -35,10 +36,16 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
 
             mWifiConfig.SSID = "\"${device.SSID}\""
             mWifiConfig.preSharedKey = "\"$password\""
-            val netId = mWifiManager.addNetwork(mWifiConfig)
+            mWifiConfig.status = WifiConfiguration.Status.ENABLED
+            mWifiConfig.allowedProtocols[WifiConfiguration.Protocol.WPA]
+            mWifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
+            var netId = mWifiManager.addNetwork(mWifiConfig)
+
+            if(netId == -1 ) netId = getExistingNetworkId(device.SSID)
 
             sleep(2000L)
             mWifiManager.enableNetwork(netId, false)
+//            mWifiManager.reconnect()
             Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : $password netId : $netId")
             wifiConfig = WifiConfig(netId = netId,ssid =device.SSID,mac = device.BSSID,passPhrase = password,connAddress = "address",meshID = "testing")
         }
@@ -48,28 +55,65 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
 
     fun insertP2pConfig(connectInfo : List<String>) {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            insert10(context,connectInfo,null)
+            insert10(context,connectInfo,null,null)
             val netId = (1000 + Random().nextInt(1000 -1))
             wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = connectInfo[4])
 
 
         }else{
+            mWifiManager.connectionInfo
             mWifiConfig.SSID = "\"${connectInfo[0]}\""
             mWifiConfig.BSSID = "\"${connectInfo[1]}\""
             mWifiConfig.preSharedKey = "\"${connectInfo[2]}\""
-            val netId = mWifiManager.addNetwork(mWifiConfig)
+            mWifiConfig.status = WifiConfiguration.Status.ENABLED
+            mWifiConfig.allowedProtocols[WifiConfiguration.Protocol.WPA]
+            mWifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
+            var netId = mWifiManager.addNetwork(mWifiConfig)
+
+            if(netId == -1 ) netId = getExistingNetworkId(connectInfo[0])
 
             sleep(2000L)
             mWifiManager.enableNetwork(netId, false)
 
-            Log.d("insertNonP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : ${mWifiConfig.preSharedKey} netId : $netId")
+            Log.d("insertP2pConfig","SSID : ${mWifiConfig.SSID} passPhrase : ${mWifiConfig.preSharedKey} netId : $netId")
             wifiConfig = WifiConfig(netId = netId,ssid = connectInfo[0],mac =connectInfo[1],passPhrase = connectInfo[2],connAddress = connectInfo[3],meshID = connectInfo[4])
         }
 
         repo.addWifiConfig(wifiConfig)
     }
+    @SuppressLint("MissingPermission")
+    private fun getExistingNetworkId(ssid: String) : Int {
+        val configuredNetworks = mWifiManager.configuredNetworks
+        configuredNetworks?.forEach {
+            if(it.SSID == ssid)
+                return it.networkId
+        }
+        return -1
+
+    }
+    fun insertScanConfig(wifiConfig: WifiConfig) {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            insert10(context,null,null,wifiConfig)
+            val netId = (1000 + Random().nextInt(1000 -1))
+            this.wifiConfig = WifiConfig(netId = netId, ssid = wifiConfig.ssid,mac = wifiConfig.mac,passPhrase = wifiConfig.passPhrase, meshID = wifiConfig.meshID,connAddress = wifiConfig.connAddress)
+        }else{
+            mWifiConfig.SSID = "\"${wifiConfig.ssid}\""
+            mWifiConfig.BSSID = "\"${wifiConfig.mac}\""
+            mWifiConfig.preSharedKey = "\"${wifiConfig.passPhrase}\""
+            val netId = mWifiManager.addNetwork(mWifiConfig)
+
+            while(true){
+                sleep(2000L)
+                if(mWifiManager.enableNetwork(netId, false)) break
+            }
+
+            this.wifiConfig = WifiConfig(netId = netId, ssid = wifiConfig.ssid,mac = wifiConfig.mac,passPhrase = wifiConfig.passPhrase, meshID = wifiConfig.meshID, connAddress = wifiConfig.connAddress)
+
+        }
+        repo.addWifiConfig(this.wifiConfig)
+    }
     @RequiresApi(Build.VERSION_CODES.Q)
-    private  fun insert10(context : Context, connectInfo : List<String>?, device : ScanResult?){
+    private  fun insert10(context : Context, connectInfo : List<String>?, device : ScanResult?, qrcodeScan: WifiConfig?){
         Log.d("QRSHOW", "HIT")
         val mWifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val myWifiSuggestion = if(connectInfo.isNullOrEmpty()){
@@ -80,10 +124,16 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
                     .setIsAppInteractionRequired(true) // Optional (Needs location permission)
                     .build()
             }
-        }else{
+        }else if(device != null){
             WifiNetworkSuggestion.Builder()
                 .setSsid(connectInfo[0])
                 .setWpa2Passphrase(connectInfo[2])
+                .setIsAppInteractionRequired(true) // Optional (Needs location permission)
+                .build()
+        }else{
+            WifiNetworkSuggestion.Builder()
+                .setSsid(qrcodeScan?.ssid!!)
+                .setWpa2Passphrase(qrcodeScan.passPhrase)
                 .setIsAppInteractionRequired(true) // Optional (Needs location permission)
                 .build()
         }
