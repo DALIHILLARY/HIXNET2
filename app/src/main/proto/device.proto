@@ -3,19 +3,19 @@ syntax = "proto3";
 package ug.hix.hixnet2.models;
 
 message DeviceNode{
-    string instanceName = 1;
-    string meshID  = 2;
-    string serviceAddress  = 3;
-    string multicastAddress = 4;
-    string macAddress  = 5;
-    repeated DeviceNode peers = 6;
-    DeviceNode relayDevice =7;
-    repeated Service services = 8;
-    int32 Hops = 9;
-    bool  hasMaster = 10;
-    bool  isMaster  = 11;
-    bool  hasInternetWifi = 12;
-    string deviceName = 13;
+    string meshID  = 1;
+    string multicastAddress = 2;
+    string publicKey = 3;
+    string macAddress  = 4;
+    repeated DeviceNode peers = 5;
+    repeated Service services = 6;
+    int32 Hops = 7;
+    bool  hasInternetWifi = 8;
+    string wifi = 9;
+    string passPhrase = 10;
+    string version = 11;
+    string status = 12; //ACTIVE / DISCONNECTED
+    string modified = 13;
 
 }
 
@@ -24,24 +24,52 @@ message Service{
     int32 port = 2;
 }
 
-//message ACK{
-//    //this a one hop ack for the packets sent
-//    //ACKID is same as packetID of the original packet
-//
-//    string ackID = 1;
-//    repeated int32 expectedOffset = 2;
-//
-//}
-//
-//message Packet{
-//    string packetID  = 1;
-//    string toMeshID = 2;
-//    string fromMeshID = 3;
-//    string originalFromMeshID = 4;
-//    int32 port   = 5;
-//    int32  offset = 6;
-//    int32  timeToLive = 7;
-//    bytes  payload  = 8;
-//    int32  expected = 9;
-//    string messageType = 10;
-//}
+message TransFile{
+    string fileName = 1;
+    string extension = 2;
+    bytes  fileContent = 3;
+}
+
+message ACK{
+    //this a one hop ack for the packets sent
+    //ACKID is same as packetID of the original packet
+
+    string ackID = 1;
+    repeated int32 expectedOffset = 2;
+    string fromMeshID = 3;
+
+}
+message PName{
+    string name = 1;
+    string name_slub = 2;
+    string modified_by = 3;
+    string status = 4;
+    string modified = 5;
+}
+message PFileName{
+    string cid = 1;
+    string name_slub = 2;
+    string status = 3;
+    string modified_by = 4;
+    string modified = 5;
+}
+message PFileSeeder{
+    string cid = 1;
+    string meshId = 2;
+    string status = 3;
+    string modified_by = 4;
+    string modified = 5;
+}
+
+message Packet{
+    string packetID  = 1;
+    string toMeshID = 2;
+    string fromMeshID = 3;
+    string originalFromMeshID = 4;
+    int32  port   = 5;
+    int32  offset = 6;
+    int32  timeToLive = 7;
+    bytes  payload  = 8;
+    int32  expected = 9;
+    string messageType = 10;
+}

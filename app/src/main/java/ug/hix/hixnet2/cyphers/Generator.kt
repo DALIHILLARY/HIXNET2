@@ -1,50 +1,48 @@
 package ug.hix.hixnet2.cyphers
 
 import android.content.Context
-import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteException
 import android.util.Base64
 import android.util.Log
-import ug.hix.hixnet2.database.DeviceDatabase
-import ug.hix.hixnet2.database.WifiConfigDatabase
-import ug.hix.hixnet2.services.MeshDaemon
+
 import java.security.*
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 
+import ug.hix.hixnet2.database.HixNetDatabase
+import ug.hix.hixnet2.database.DeviceNode
+import ug.hix.hixnet2.repository.Repository
+import ug.hix.hixnet2.util.Base58
+import java.io.File
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import ug.hix.hixnet2.models.DeviceNode as Device
+
+import java.lang.Exception
+import java.net.NetworkInterface
+
+
 open class Generator {
 
-
-
     companion object : Generator() {
-        private val TAG = javaClass.simpleName
+        private val TAG = "Generator"
         private lateinit var pubKeyS : String
         private lateinit var priKeyS : String
         private lateinit var pid    : String
 
-        private var deviceInstance : DeviceDatabase? = null
-        private var configInstance : WifiConfigDatabase? = null
+        private var hixNetInstance : HixNetDatabase? = null
 
-        //private  var deviceDb = DeviceDatabase.dbInstance(MeshDaemon().applicationContext)
-
-        fun getDeviceInstance(context : Context) : DeviceDatabase{
-            if(deviceInstance == null){
-                deviceInstance = DeviceDatabase.dbInstance(context.applicationContext)
+        fun getDatabaseInstance(context : Context) : HixNetDatabase{
+            if(hixNetInstance == null){
+                hixNetInstance = HixNetDatabase.dbInstance(context.applicationContext)
             }
 
-            return deviceInstance as DeviceDatabase
+            return hixNetInstance as HixNetDatabase
         }
 
-        fun getConfigInstance(context: Context) : WifiConfigDatabase{
-            if(configInstance == null){
-                configInstance = WifiConfigDatabase.dbInstance(context.applicationContext)
-            }
-            return configInstance as WifiConfigDatabase
-        }
         
-        private fun createKeys(){
+        private fun createKeys(context: Context){
+            val deviceDb = hixNetInstance?.deviceNodeDao()
 
             val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
@@ -59,8 +57,12 @@ open class Generator {
             val digest : MessageDigest = MessageDigest.getInstance("SHA-256")
             val encodedHash = digest.digest(pubKey.encoded)
 
-            pid   = Base64.encodeToString(encodedHash, Base64.DEFAULT)
-
+            pid = "HixNet${Base58.encode(encodedHash)}"
+            val macAddress = getMacAddress()
+            val multicastAddress =  getMultiAddress(context,null)
+            //store keys in database
+            val device = DeviceNode(meshID = pid, mac = macAddress, privateKey = priKeyS, publicKey = pubKeyS, multicastAddress = multicastAddress, isMe = true)
+            deviceDb?.addDevice(device)
 
         }
 
@@ -73,8 +75,6 @@ open class Generator {
 
             hotspotName = "HixNet" + passKey.reversed()
 
-            val instanceName = "$hotspotName:$passKey"
-
             return Pair(hotspotName,passKey)
         }
 
@@ -86,6 +86,61 @@ open class Generator {
 
         fun getPID() : String{
             return pid
+        }
+
+        fun getMultiAddress(context: Context, scanAddress: String?) : String {
+            var address = ""
+            if(scanAddress != null){
+                val device = Repository.getInstance(context).getMyDeviceInfo()
+                val badAddresses = getBadMultiAddress(context).split("::")
+                val scanAddresses = scanAddress.split("::")
+
+                if(!scanAddresses.contains(device.multicastAddress) && !badAddresses.contains(scanAddresses[0]) ){
+                    Log.d(TAG,"Using old address:  ${device.multicastAddress}")
+
+                    return device.multicastAddress
+                }else{
+                    while (true){
+                        address = addressGen()
+
+                        if (badAddresses.contains(address) || scanAddresses.contains(address)){
+                            continue
+                        }else{
+                            Log.d(TAG,"Generated address:  $address")
+                            Repository.getInstance(context).updateAddress(address)
+                            return address
+                        }
+                    }
+
+                }
+
+            }else{
+                return  addressGen()
+            }
+
+        }
+        private fun addressGen() : String {
+            val numberList = mutableListOf<String>()
+            var count = 0
+            while(true){
+                count += 1
+                if(count > 3){
+                    break
+                }
+                var number = (1 + Random().nextInt(254 - 1)).toString()
+                if(number.length == 1){
+                    number = "00$number"
+                }else if(number.length == 2){
+                    number = "0$number"
+                }
+                numberList.add(number)
+
+            }
+            return "230." + numberList.joinToString(separator = ".")
+
+        }
+        fun getBadMultiAddress(context: Context) : String{
+            return Repository.getInstance(context).getNearMultiAddresses().joinToString("::")
         }
 
         fun getPrivateKey() : PrivateKey{
@@ -104,40 +159,61 @@ open class Generator {
             return kf.generatePublic(ks)
         }
 
-        fun loadKeys(){
-            var keyDB : SQLiteDatabase? = null
+        fun loadKeys(context: Context){
+            val deviceDb = hixNetInstance?.deviceNodeDao()
+            priKeyS = deviceDb?.getMyPrivateKey().toString()
+            pubKeyS = deviceDb?.getMyPublicKey().toString()
+            pid     = deviceDb?.getMyPid().toString()
 
-            try{
-                Log.i(TAG, "opening db if exists")
-                keyDB = SQLiteDatabase.openDatabase("keycipher.db",null,SQLiteDatabase.OPEN_READONLY)
+            Log.d(TAG," $pid,\n $pubKeyS")
 
-                val result : Cursor = keyDB.rawQuery("Select * from Keys",null)
-
-                //the hard fucking work
-                result.moveToFirst()
-                priKeyS =   result.getString(1)
-                result.moveToNext()
-                pubKeyS  = result.getString(1)
-                result.moveToLast()
-                pid     = result.getString(1)
-
-                result.close()
-                keyDB.close()
-
-            }catch (error : SQLiteException){
-                createKeys() //initial run
-
-                Log.d(TAG, "First time creating ")
-                keyDB =  SQLiteDatabase.openOrCreateDatabase("keycipher.db",null)
-
-                keyDB?.execSQL("CREATE TABLE IF NOT EXISTS Keys(Name VARCHAR, Value VARCHAR)")
-                keyDB?.execSQL("INSERT INTO keys VALUES('privateKey','$priKeyS')")
-                keyDB?.execSQL("INSERT INTO keys VALUES('publicKey','$pubKeyS')")
-                keyDB?.execSQL("INSERT INTO keys VALUES('PID','$pid')")
-
+            if(pid == "null"){
+                createKeys(context)
             }
         }
-    }
+        private fun getMacAddress() : String {
+            try {
+                val interfaces = NetworkInterface.getNetworkInterfaces().toList()
 
+                for (nif in interfaces){
+                    if(nif.name == "wlan0"){
+                        val macBytes = nif.hardwareAddress ?: return ""
+
+                        val res1 = StringBuffer()
+                        macBytes.forEach {
+                            res1.append(String.format("%02X:",it))
+                        }
+
+                        if(res1.isNotEmpty()){
+                            res1.deleteCharAt(res1.length - 1)
+                        }
+
+                        return res1.toString()
+                    }
+
+                }
+            }catch (e : Exception){ }
+            return "02:00:00:00:00:00:00"
+        }
+        fun getEncodedHash(file: File) : ByteArray{
+            val digest : MessageDigest = MessageDigest.getInstance("SHA-256")
+            val fileStream = FileInputStream(file)
+            val digestStream = DigestInputStream(fileStream,digest)
+            var readBuffer = ByteArray(1024*1024)
+
+            while(true){
+                if (digestStream.available() < 1024 * 1024) {
+                    if (digestStream.available() == 0) break
+                    readBuffer = ByteArray((digestStream.available().rem(1024 * 1024)))
+                }
+                if(digestStream.read(readBuffer,0,readBuffer.size) < 0) break
+            }
+
+            fileStream.close()
+            digestStream.close()
+            return digestStream.messageDigest.digest()
+
+        }
+    }
 
 }

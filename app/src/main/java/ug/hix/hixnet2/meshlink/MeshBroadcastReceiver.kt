@@ -7,12 +7,10 @@ import android.net.NetworkInfo
 import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pManager
 import android.util.Log
+import androidx.work.impl.utils.ForceStopRunnable
 
-class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: WifiP2pManager.Channel) : BroadcastReceiver() {
-    val TAG = javaClass.simpleName
-    val manager = manager
-    val channel =  channel
-    val instance = instance
+class MeshBroadcastReceiver(private val instance : Any , private val manager: WifiP2pManager, private val channel: WifiP2pManager.Channel) : BroadcastReceiver() {
+    private val TAG = javaClass.simpleName
 
 
     override fun onReceive(context: Context?, intent: Intent) {
@@ -35,7 +33,6 @@ class MeshBroadcastReceiver(instance : Any , manager: WifiP2pManager, channel: W
                         "WIFI_P2P"-> {
 //                            instance.hasMaster  = true
                             manager.requestConnectionInfo(channel, instance as WifiP2pManager.ConnectionInfoListener?)
-                            manager.requestGroupInfo(channel,instance as WifiP2pManager.GroupInfoListener)
                         }
                         "WIFI" -> {
                             Log.d(TAG,"COnnected to another peer")

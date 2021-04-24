@@ -3,24 +3,26 @@ package ug.hix.hixnet2.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import ug.hix.hixnet2.util.Util
 import java.io.Serializable
 
-@Entity
+@Entity(primaryKeys = ["meshID","multicastAddress","hops"])
 data class DeviceNode (
-    @PrimaryKey val meshID : String,
-    val instanceName   : String,
-    val serviceAddress : String,
-    val multicastAddress : String,
-    val macAddress   : String,
-    val publicKey   : String,
-    val privateKey : String,
-    val relayDevice   : Boolean,
+    val meshID : String = "",
+    val serviceAddress : String = "",
+    val multicastAddress : String = "",
+    val mac : String = "",
+    val publicKey  : String = "",
+    val privateKey : String = "",
+    val relayDevice : Boolean = false,
     @TypeConverters(ServiceConverter::class)
-    val services     : List<Services>,
-    val hops      : Int,
-    val slave  : Boolean,
-    val master   : Boolean,
-    val hasInternetWifi : Boolean,
-    val isMe  : Boolean
-
+    val services     : List<Services>? =  null,
+    val hops      : Int = 0,
+    val iface : String = "wlan0",
+    val hasInternetWifi : Boolean = false,
+    val isMe  : Boolean = false,
+    val version : String = "",
+    val modified : String = Util.currentDateTime(),
+    val status : String = "",
+    val rName : String = ""
 ) : Serializable

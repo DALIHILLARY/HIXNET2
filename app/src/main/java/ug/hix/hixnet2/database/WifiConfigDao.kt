@@ -13,9 +13,24 @@ interface WifiConfigDao {
     @Query("SELECT * FROM wificonfig")
     fun getAllConfig() : List<WifiConfig>
 
-    @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
-    fun getDeviceConfig(ssid : String)
+    @Query("SELECT mac FROM wificonfig")
+    fun getAllMac()   : List<String>
 
-    @Query("SELECT netId FROM WifiConfig WHERE ssid = :ssid")
-    fun getDeviceNetid(ssid : String)
+    @Query("SELECT netId FROM wificonfig")
+    fun getAllNetId() : List<Int>
+
+    @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
+    fun getWifiConfigBySsid(ssid : String) : WifiConfig
+
+    @Query("SELECT netId FROM wificonfig WHERE ssid = :ssid")
+    fun getWifiNetId(ssid : String) : Int
+
+    @Query("SELECT * FROM wificonfig WHERE mac = :mac")
+    fun getWifiConfigByMac(mac : String) : WifiConfig
+
+    @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
+    fun getWifiConfigBySsidList(ssid : String): List<WifiConfig>
+
+    @Query("SELECT * FROM wificonfig WHERE meshID = :meshId")
+    fun getWifiConfigByMeshId(meshId: String) : WifiConfig
 }

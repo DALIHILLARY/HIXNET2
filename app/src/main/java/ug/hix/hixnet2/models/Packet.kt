@@ -26,7 +26,7 @@ class Packet(
     tag = 1,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  var packetID: String = "",
+  val packetID: String = "",
   @field:WireField(
     tag = 2,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
@@ -36,7 +36,7 @@ class Packet(
     tag = 3,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  var fromMeshID: String = "",
+  val fromMeshID: String = "",
   @field:WireField(
     tag = 4,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
@@ -46,12 +46,12 @@ class Packet(
     tag = 5,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
-  var port: Int = 0,
+  val port: Int = 0,
   @field:WireField(
     tag = 6,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
-  var offset: Int = 0,
+  val offset: Int = 0,
   @field:WireField(
     tag = 7,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
@@ -61,17 +61,17 @@ class Packet(
     tag = 8,
     adapter = "com.squareup.wire.ProtoAdapter#BYTES"
   )
-  var payload: ByteString = ByteString.EMPTY,
+  val payload: ByteString = ByteString.EMPTY,
   @field:WireField(
     tag = 9,
     adapter = "com.squareup.wire.ProtoAdapter#INT32"
   )
-  var expected: Int = 0,
+  val expected: Int = 0,
   @field:WireField(
     tag = 10,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  var messageType: String = "",
+  val messageType: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<Packet, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
