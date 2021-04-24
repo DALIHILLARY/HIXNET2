@@ -74,7 +74,8 @@ class Licklider(private val mContext: Context){
             }
             is DeviceNode -> {
                 packet = packet.copy(messageType = "meshUpdate",port = PORT)
-                buffer  = DeviceNode.ADAPTER.encode(message)
+                val fineMessage = DeviceNode.ADAPTER.redact(message)
+                buffer  = DeviceNode.ADAPTER.encode(fineMessage)
 
             }
             is TransFile -> {
@@ -268,22 +269,17 @@ class Licklider(private val mContext: Context){
                     repo.getUpdatedDeviceFlow().collect {
                         it?.let{
                             val deviceSend = DeviceNode(
-                                meshID = MeshDaemon.device.meshID,
-                                peers = listOf(
-                                    DeviceNode(
-                                        meshID = it.device.meshID,
-                                        Hops = it.device.hops,
-                                        macAddress = it.wifiConfig.mac,
-                                        publicKey = it.device.publicKey,
-                                        hasInternetWifi = it.device.hasInternetWifi,
-                                        wifi = it.wifiConfig.ssid,
-                                        passPhrase = it.wifiConfig.passPhrase,
-                                        version = it.device.version,
-                                        status = it.device.status,
-                                        modified = it.device.modified
-                                    )
-
-                                )
+                                fromMeshID = MeshDaemon.device.meshID,
+                                meshID = it.device.meshID,
+                                Hops = it.device.hops,
+                                macAddress = it.wifiConfig.mac,
+                                publicKey = it.device.publicKey,
+                                hasInternetWifi = it.device.hasInternetWifi,
+                                wifi = it.wifiConfig.ssid,
+                                passPhrase = it.wifiConfig.passPhrase,
+                                version = it.device.version,
+                                status = it.device.status,
+                                modified = it.device.modified
                             )
                             Log.d(TAG, "New device detected: $it")
                             loadData(message = deviceSend, toMeshId = it.device.meshID)
@@ -444,7 +440,8 @@ class Licklider(private val mContext: Context){
 
         val data = Packet.ADAPTER.encode(packet)
         val port = packet.port
-//        Log.d("forwarder addresses", link.toString())
+        Log.d(TAG,"Packet : $packet")
+        Log.d("forwarder addresses", link.toString())
         //check if primary mesh buffers are empty
         if(primaryBuffers.isEmpty()) {
             if(link.first().first != "notAvailable"){
@@ -468,8 +465,8 @@ class Licklider(private val mContext: Context){
     private fun getLink(meshId : String, packetType : String) : List<Triple<String,String,Int>> {
         val repo = Repository.getInstance(mContext)
         return if (packetType.endsWith("update",true)){
-           repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
-//            repo.getNearLinks()  //TEST get all the multiaddress with digits
+//           repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
+            repo.getNearLinks()  //TEST get all the multiaddress with digits
         }else{
             if(packetType == "ACK"){
 //                TODO("get address nearest with file")
@@ -641,22 +638,17 @@ class Licklider(private val mContext: Context){
                         try{
                             devices.forEach {
                                 val deviceSend = DeviceNode(
-                                    meshID = MeshDaemon.device.meshID,
-                                    peers = listOf(
-                                        DeviceNode(
-                                            meshID = it.device.meshID,
-                                            Hops = it.device.hops,
-                                            macAddress = it.wifiConfig.mac,
-                                            publicKey = it.device.publicKey,
-                                            hasInternetWifi = it.device.hasInternetWifi,
-                                            wifi = it.wifiConfig.ssid,
-                                            passPhrase = it.wifiConfig.passPhrase,
-                                            version = it.device.version,
-                                            status = it.device.status,
-                                            modified = it.device.modified
-                                        )
-
-                                    )
+                                    fromMeshID = MeshDaemon.device.meshID,
+                                    meshID = it.device.meshID,
+                                    Hops = it.device.hops,
+                                    macAddress = it.wifiConfig.mac,
+                                    publicKey = it.device.publicKey,
+                                    hasInternetWifi = it.device.hasInternetWifi,
+                                    wifi = it.wifiConfig.ssid,
+                                    passPhrase = it.wifiConfig.passPhrase,
+                                    version = it.device.version,
+                                    status = it.device.status,
+                                    modified = it.device.modified
                                 )
                                 loadData(message = deviceSend, toMeshId = it.device.meshID)
                             }
@@ -742,27 +734,25 @@ class Licklider(private val mContext: Context){
             "meshUpdate" -> {
                 Log.d(TAG,"dataType : MESH UPDATE")
                 val deviceUpdate = withContext(Dispatchers.IO){DeviceNode.ADAPTER.decode(array)}
-                val deviceObj = deviceUpdate.peers.map { device ->
-                    ug.hix.hixnet2.database.DeviceNode(
-                        meshID = device.meshID,
+
+                val deviceObj = ug.hix.hixnet2.database.DeviceNode(
+                        meshID = deviceUpdate.meshID,
                         multicastAddress = deviceUpdate.meshID,
-                        hops = device.Hops + 1,
-                        publicKey = device.publicKey,
-                        hasInternetWifi = device.hasInternetWifi,
+                        hops = deviceUpdate.Hops + 1,
+                        publicKey = deviceUpdate.publicKey,
+                        hasInternetWifi = deviceUpdate.hasInternetWifi,
                         iface = iFace,
-                        status = device.status,
-                        version = device.version,
-                        modified = device.modified
+                        status = deviceUpdate.status,
+                        version = deviceUpdate.version,
+                        modified = deviceUpdate.modified
                     )
-                }
-                val wifiConfigObj =  deviceUpdate.peers.map {device ->
-                    WifiConfig(
-                        meshID = device.meshID,
-                        mac = device.macAddress,
-                        ssid = device.wifi,
-                        passPhrase = device.passPhrase
+                val wifiConfigObj = WifiConfig(
+                        meshID = deviceUpdate.meshID,
+                        mac = deviceUpdate.macAddress,
+                        ssid = deviceUpdate.wifi,
+                        passPhrase = deviceUpdate.passPhrase
                     )
-                }
+
                 val repo = Repository.getInstance(mContext)
                 repo.insertOrUpdateDeviceWithConfig(deviceObj,wifiConfigObj)
 

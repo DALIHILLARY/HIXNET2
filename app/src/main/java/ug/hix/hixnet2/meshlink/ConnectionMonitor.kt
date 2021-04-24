@@ -191,25 +191,21 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     val fileNames = repo.getAllFileNames()
                     val names = repo.getAllNames()
                     val devices = repo.getAllDevices()
+                    Log.e(TAG,"Sending devices")
                     try{
                         devices.forEach {
                             val deviceSend = DeviceNode(
-                                meshID = MeshDaemon.device.meshID,
-                                peers = listOf(
-                                    DeviceNode(
-                                        meshID = it.device.meshID,
-                                        Hops = it.device.hops,
-                                        macAddress = it.wifiConfig.mac,
-                                        publicKey = it.device.publicKey,
-                                        hasInternetWifi = it.device.hasInternetWifi,
-                                        wifi = it.wifiConfig.ssid,
-                                        passPhrase = it.wifiConfig.passPhrase,
-                                        version = it.device.version,
-                                        status = it.device.status,
-                                        modified = it.device.modified
-                                    )
-
-                                )
+                                fromMeshID = MeshDaemon.device.meshID,
+                                meshID = it.device.meshID,
+                                Hops = it.device.hops,
+                                macAddress = it.wifiConfig.mac,
+                                publicKey = it.device.publicKey,
+                                hasInternetWifi = it.device.hasInternetWifi,
+                                wifi = it.wifiConfig.ssid,
+                                passPhrase = it.wifiConfig.passPhrase,
+                                version = it.device.version,
+                                status = it.device.status,
+                                modified = it.device.modified
                             )
                             licklider.loadData(message = deviceSend, toMeshId = it.device.meshID)
                         }
@@ -217,6 +213,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                         Log.e(TAG, "Something happened to the hello devices")
                         e.printStackTrace()
                     }
+                    Log.e(TAG,"Sending file seeders")
                     try{
                         fileSeeders.forEach {
                             val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
@@ -226,6 +223,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                         Log.e(TAG, "Something happened to the hello file seeder")
                         e.printStackTrace()
                     }
+                    Log.e(TAG,"SENDING FILE NAMES")
                     try{
                         fileNames.forEach {
                             val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
@@ -235,6 +233,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                         Log.e(TAG, "Something happened to the hello filename ")
                         e.printStackTrace()
                     }
+                    Log.e(TAG,"SENDING NAMES")
                     try{
                         names.forEach {
                             val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
@@ -688,11 +687,18 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
     companion object {
         @SuppressLint("StaticFieldLeak")
         private var instance: ConnectionMonitor? = null
+        private var channel: WifiP2pManager.Channel? = null
         fun getInstance(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel) : ConnectionMonitor {
             if(instance ==  null) {
                 instance = ConnectionMonitor(context,manager,channel)
             }
             return instance as ConnectionMonitor
+        }
+        fun getChannelInstance(context : Context, manager: WifiP2pManager) : WifiP2pManager.Channel{
+            if(channel == null){
+                channel = manager.initialize(context,context.mainLooper,null)
+            }
+            return channel as WifiP2pManager.Channel
         }
     }
 }

@@ -154,10 +154,10 @@ class Repository(val context : Context) {
     @ExperimentalCoroutinesApi
     fun getUpdatedFileSeederFlow(): Flow<FileSeeder?> = fileDao.getUpdatedFileSeederFlow().distinctUntilChanged()
 
-    fun insertOrUpdateDeviceWithConfig(devices: List<DeviceNode>, wifiConfigs: List<WifiConfig>){
+    fun insertOrUpdateDeviceWithConfig(device: DeviceNode, wifiConfig: WifiConfig){
         runBlocking(Dispatchers.IO){
-            if(validateDeviceUpdate(devices[0]))
-                deviceDao.addDeviceWithConfig(devices,wifiConfigs)
+            if(validateDeviceUpdate(device))
+                deviceDao.addDeviceWithConfig(device,wifiConfig)
         }
     }
     private fun validateDeviceUpdate(device : DeviceNode) : Boolean {

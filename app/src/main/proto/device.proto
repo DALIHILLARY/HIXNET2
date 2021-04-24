@@ -7,8 +7,8 @@ message DeviceNode{
     string multicastAddress = 2;
     string publicKey = 3;
     string macAddress  = 4;
-    repeated DeviceNode peers = 5;
-    repeated Service services = 6;
+    string fromMeshID = 5;
+//    repeated Service services = 6;
     int32 Hops = 7;
     bool  hasInternetWifi = 8;
     string wifi = 9;

@@ -8,7 +8,7 @@ import ug.hix.hixnet2.util.Util
 @Dao
 interface DeviceNodeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE, entity = WifiConfig::class)
-    fun addConfig( config :List<WifiConfig>)
+    fun addConfig( config : WifiConfig)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : List<DeviceNode>)
@@ -16,11 +16,11 @@ interface DeviceNodeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : DeviceNode)
 
-    fun addDeviceWithConfig(device: List<DeviceNode>, wifiConfig: List<WifiConfig>){
+    fun addDeviceWithConfig(device: DeviceNode, wifiConfig: WifiConfig){
         addConfig(wifiConfig) //first so as to avoid null in flow
         addDevice(device)
     }
-    @Delete()
+    @Delete
     fun removeDevice(device: DeviceNode)
 
     @Query("SELECT * FROM devicenode")
