@@ -215,7 +215,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     try{
                         fileSeeders.forEach {
                             val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHello")
-                            licklider.loadData(pFileSeeder,it.modified_by)
+                            licklider.loadData(pFileSeeder, toMeshId = connAddress)
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello file seeder")
@@ -225,7 +225,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     try{
                         fileNames.forEach {
                             val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHello")
-                            licklider.loadData(pFileName,it.modified_by)
+                            licklider.loadData(pFileName, toMeshId = connAddress)
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello filename ")
@@ -235,7 +235,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     try{
                         names.forEach {
                             val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status,type = "nameHello")
-                            licklider.loadData(pName,it.modified_by)
+                            licklider.loadData(pName, toMeshId = connAddress)
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello name")

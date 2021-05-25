@@ -625,8 +625,8 @@ class Licklider(private val mContext: Context){
     }
 
     private suspend fun decodeData(array : ByteArray , type : String, iFace: String){
-        when(type){
-            "HELLO" -> {
+        when{
+            type == "HELLO" -> {
                 withContext(Dispatchers.IO) {
                     val command = Command.ADAPTER.decode(array)
                     val repo = Repository.getInstance(mContext)
@@ -701,7 +701,7 @@ class Licklider(private val mContext: Context){
 //                    }
 //                }
 //            }
-            "ACK"   -> {
+            type == "ACK"   -> {
                 Log.d(TAG,"dataType : ack")
                 withContext(Dispatchers.IO){
                     val ack = ACK.ADAPTER.decode(array)
@@ -718,15 +718,13 @@ class Licklider(private val mContext: Context){
 
                 }
             }
-            "fileSeederUpdate" -> {
-                Log.d(TAG,"dataType : file seeder Update")
+            type.startsWith("fileSeeder") -> {
                 val pFileSeeder = withContext(Dispatchers.IO){PFileSeeder.ADAPTER.decode(array)}
                 val fileSeeder = FileSeeder(pFileSeeder.cid,pFileSeeder.meshId,pFileSeeder.status,pFileSeeder.modified,pFileSeeder.modified_by)
                 val repo = Repository.getInstance(mContext)
                 repo.updateFileSeeder(fileSeeder)
             }
-            "nameUpdate" -> {
-                Log.d(TAG,"dataType : name update")
+            type.startsWith("name") -> {
                 val pName = withContext(Dispatchers.IO){PName.ADAPTER.decode(array)}
                 val name = Name(pName.name_slub,pName.name,pName.status,pName.modified,pName.modified_by)
                 val repo = Repository.getInstance(mContext)
@@ -734,18 +732,15 @@ class Licklider(private val mContext: Context){
 
 
             }
-            "fileNameUpdate" -> {
-                Log.d(TAG,"dataType : file name update")
+            type.startsWith("fileName") -> {
                 val pFileName = withContext(Dispatchers.IO){PFileName.ADAPTER.decode(array)}
                 val fileName = FileName(pFileName.cid,pFileName.name_slub,pFileName.status,pFileName.modified,pFileName.modified_by)
                 val repo = Repository.getInstance(mContext)
                 repo.updateFileName(fileName)
 
             }
-            "meshUpdate" -> {
-                Log.d(TAG,"dataType : MESH UPDATE")
+            type.startsWith("mesh") -> {
                 val deviceUpdate = withContext(Dispatchers.IO){DeviceNode.ADAPTER.decode(array)}
-
                 val deviceObj = ug.hix.hixnet2.database.DeviceNode(
                         meshID = deviceUpdate.meshID,
                         multicastAddress = deviceUpdate.meshID,
