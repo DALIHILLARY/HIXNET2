@@ -175,8 +175,8 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         sleep(1000L)
         //determine wifi type direct or normal fro ssid
         val conSSID = mWifiManager.connectionInfo.ssid
-        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"KALI HIX")) {
-            val connAddress = repo.getWifiConfigBySsid(conSSID)?.connAddress
+        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"KALI",true)) {
+            val connAddress = repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress
 //            val connAddress = repo.getMyDeviceInfo().meshID  //TESTING
             connAddress?.let{
                 GlobalScope.launch {
@@ -246,9 +246,6 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             }
 
         }
-//                                else{
-//                                    hasInternet = true
-//                                }
     }
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun registerNetworkCallback() {

@@ -52,7 +52,7 @@ class Licklider(private val mContext: Context){
 //
 //            }
             is Command -> {
-                packet = packet.copy(messageType = "COMMAND",port = PORT)
+                packet = packet.copy(messageType = message.type,port = PORT)
                 buffer  = Command.ADAPTER.encode(message)
             }
             is ACK -> {
@@ -443,8 +443,6 @@ class Licklider(private val mContext: Context){
 
         val data = Packet.ADAPTER.encode(packet)
         val port = packet.port
-        Log.d(TAG,"Packet : $packet")
-        Log.d("forwarder addresses", link.toString())
         //check if primary mesh buffers are empty
         if(primaryBuffers.isEmpty()) {
             if(link.first().first != "notAvailable"){
@@ -628,75 +626,81 @@ class Licklider(private val mContext: Context){
 
     private suspend fun decodeData(array : ByteArray , type : String, iFace: String){
         when(type){
-            "COMMAND"  -> {
-                withContext(Dispatchers.IO){
+            "HELLO" -> {
+                withContext(Dispatchers.IO) {
                     val command = Command.ADAPTER.decode(array)
-                    Log.d(TAG,"dataType : Command")
-                    //this just a bunch of string commands
-                    when(command.type) {
-                        "HELLO" -> {
-                            val repo = Repository.getInstance(mContext)
-                            //send all tables to the slave device
-                            val fileSeeders = repo.getAllFileSeeders()
-                            val fileNames = repo.getAllFileNames()
-                            val names = repo.getAllNames()
-                            val devices = repo.getAllDevices()
-                            try{
-                                devices.forEach {
-                                    val deviceSend = DeviceNode(
-                                        fromMeshID = MeshDaemon.device.meshID,
-                                        meshID = it.device.meshID,
-                                        Hops = it.device.hops,
-                                        macAddress = it.wifiConfig.mac,
-                                        publicKey = it.device.publicKey,
-                                        hasInternetWifi = it.device.hasInternetWifi,
-                                        wifi = it.wifiConfig.ssid,
-                                        passPhrase = it.wifiConfig.passPhrase,
-                                        version = it.device.version,
-                                        status = it.device.status,
-                                        modified = it.device.modified,
-                                        type = "meshHelloAck"
-                                    )
-                                    loadData(message = deviceSend, toMeshId = command.from)
-                                }
-                            }catch (e: Throwable) {
-                                Log.e(TAG, "Something happened to the ack hello devices",e)
-                                e.printStackTrace()
-                            }
-                            try{
-                                fileSeeders.forEach {
-                                    val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHelloAck")
-                                    loadData(pFileSeeder,it.modified_by)
-                                }
-                            }catch (e: Throwable) {
-                                Log.e(TAG, "Something happened to the ack hello file seeder",e)
-                                e.printStackTrace()
-                            }
-                            try{
-                                fileNames.forEach {
-                                    val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHelloAck")
-                                    loadData(pFileName,it.modified_by)
-                                }
-                            }catch (e: Throwable) {
-                                Log.e(TAG, "Something happened to the ack hello filename ",e)
-                                e.printStackTrace()
-                            }
-                            try{
-                                names.forEach {
-                                    val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status, type = "nameHelloAck")
-                                    loadData(pName,it.modified_by)
-                                }
-                            }catch (e: Throwable) {
-                                Log.e(TAG, "Something happened to the ack hello name",e)
-                                e.printStackTrace()
-                            }
+                    val repo = Repository.getInstance(mContext)
+                    //send all tables to the slave device
+                    val fileSeeders = repo.getAllFileSeeders()
+                    val fileNames = repo.getAllFileNames()
+                    val names = repo.getAllNames()
+                    val devices = repo.getAllDevices()
+                    try{
+                        devices.forEach {
+                            val deviceSend = DeviceNode(
+                                fromMeshID = MeshDaemon.device.meshID,
+                                meshID = it.device.meshID,
+                                Hops = it.device.hops,
+                                macAddress = it.wifiConfig.mac,
+                                publicKey = it.device.publicKey,
+                                hasInternetWifi = it.device.hasInternetWifi,
+                                wifi = it.wifiConfig.ssid,
+                                passPhrase = it.wifiConfig.passPhrase,
+                                version = it.device.version,
+                                status = it.device.status,
+                                modified = it.device.modified,
+                                type = "meshHelloAck"
+                            )
+                            loadData(message = deviceSend, toMeshId = command.from)
                         }
-                        "LEAVING" -> {
-
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the ack hello devices",e)
+                        e.printStackTrace()
+                    }
+                    try{
+                        fileSeeders.forEach {
+                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHelloAck")
+                            loadData(pFileSeeder, toMeshId = command.from)
                         }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the ack hello file seeder",e)
+                        e.printStackTrace()
+                    }
+                    try{
+                        fileNames.forEach {
+                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHelloAck")
+                            loadData(pFileName, toMeshId = command.from)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the ack hello filename ",e)
+                        e.printStackTrace()
+                    }
+                    try{
+                        names.forEach {
+                            val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status, type = "nameHelloAck")
+                            loadData(pName, toMeshId = command.from)
+                        }
+                    }catch (e: Throwable) {
+                        Log.e(TAG, "Something happened to the ack hello name",e)
+                        e.printStackTrace()
                     }
                 }
             }
+//            "COMMAND"  -> {
+//                withContext(Dispatchers.IO){
+//                    val command = Command.ADAPTER.decode(array)
+//                    Log.d(TAG,"dataType : Command")
+//                    //this just a bunch of string commands
+//                    when(command.type) {
+//                        "HELLO" -> {
+//
+//                        }
+//                        "LEAVING" -> {
+//
+//                        }
+//                    }
+//                }
+//            }
             "ACK"   -> {
                 Log.d(TAG,"dataType : ack")
                 withContext(Dispatchers.IO){
