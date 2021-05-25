@@ -88,6 +88,14 @@ class DeviceNode(
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
   val modified: String = "",
+  /**
+   * helloAck hello normal
+   */
+  @field:WireField(
+    tag = 14,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val type: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<DeviceNode, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -112,6 +120,7 @@ class DeviceNode(
         && version == other.version
         && status == other.status
         && modified == other.modified
+        && type == other.type
   }
 
   override fun hashCode(): Int {
@@ -130,6 +139,7 @@ class DeviceNode(
       result = result * 37 + version.hashCode()
       result = result * 37 + status.hashCode()
       result = result * 37 + modified.hashCode()
+      result = result * 37 + type.hashCode()
       super.hashCode = result
     }
     return result
@@ -149,6 +159,7 @@ class DeviceNode(
     result += """version=${sanitize(version)}"""
     result += """status=${sanitize(status)}"""
     result += """modified=${sanitize(modified)}"""
+    result += """type=${sanitize(type)}"""
     return result.joinToString(prefix = "DeviceNode{", separator = ", ", postfix = "}")
   }
 
@@ -165,9 +176,10 @@ class DeviceNode(
     version: String = this.version,
     status: String = this.status,
     modified: String = this.modified,
+    type: String = this.type,
     unknownFields: ByteString = this.unknownFields
   ): DeviceNode = DeviceNode(meshID, multicastAddress, publicKey, macAddress, fromMeshID, Hops,
-      hasInternetWifi, wifi, passPhrase, version, status, modified, unknownFields)
+      hasInternetWifi, wifi, passPhrase, version, status, modified, type, unknownFields)
 
   companion object {
     @JvmField
@@ -189,6 +201,7 @@ class DeviceNode(
         ProtoAdapter.STRING.encodedSizeWithTag(11, value.version) +
         ProtoAdapter.STRING.encodedSizeWithTag(12, value.status) +
         ProtoAdapter.STRING.encodedSizeWithTag(13, value.modified) +
+        ProtoAdapter.STRING.encodedSizeWithTag(14, value.type) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: DeviceNode) {
@@ -206,6 +219,7 @@ class DeviceNode(
         if (value.version != "") ProtoAdapter.STRING.encodeWithTag(writer, 11, value.version)
         if (value.status != "") ProtoAdapter.STRING.encodeWithTag(writer, 12, value.status)
         if (value.modified != "") ProtoAdapter.STRING.encodeWithTag(writer, 13, value.modified)
+        if (value.type != "") ProtoAdapter.STRING.encodeWithTag(writer, 14, value.type)
         writer.writeBytes(value.unknownFields)
       }
 
@@ -222,6 +236,7 @@ class DeviceNode(
         var version: String = ""
         var status: String = ""
         var modified: String = ""
+        var type: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> meshID = ProtoAdapter.STRING.decode(reader)
@@ -236,6 +251,7 @@ class DeviceNode(
             11 -> version = ProtoAdapter.STRING.decode(reader)
             12 -> status = ProtoAdapter.STRING.decode(reader)
             13 -> modified = ProtoAdapter.STRING.decode(reader)
+            14 -> type = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
@@ -252,6 +268,7 @@ class DeviceNode(
           version = version,
           status = status,
           modified = modified,
+          type = type,
           unknownFields = unknownFields
         )
       }

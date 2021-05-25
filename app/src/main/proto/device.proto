@@ -16,38 +16,7 @@ message DeviceNode{
     string version = 11;
     string status = 12; //ACTIVE / DISCONNECTED
     string modified = 13;
-
-}
-message Hello{
-    string meshID  = 1;
-    string multicastAddress = 2;
-    string publicKey = 3;
-    string macAddress  = 4;
-    string fromMeshID = 5;
-    //    repeated Service services = 6;
-    int32 Hops = 7;
-    bool  hasInternetWifi = 8;
-    string wifi = 9;
-    string passPhrase = 10;
-    string version = 11;
-    string status = 12; //ACTIVE / DISCONNECTED
-    string modified = 13;
-
-}
-message HelloAck{
-    string meshID  = 1;
-    string multicastAddress = 2;
-    string publicKey = 3;
-    string macAddress  = 4;
-    string fromMeshID = 5;
-    //    repeated Service services = 6;
-    int32 Hops = 7;
-    bool  hasInternetWifi = 8;
-    string wifi = 9;
-    string passPhrase = 10;
-    string version = 11;
-    string status = 12; //ACTIVE / DISCONNECTED
-    string modified = 13;
+    string type = 14; //helloAck hello meshUpdate
 
 }
 message Command{
@@ -80,6 +49,7 @@ message PName{
     string modified_by = 3;
     string status = 4;
     string modified = 5;
+    string type = 6; //helloAck hello nameUpdate
 }
 message PFileName{
     string cid = 1;
@@ -87,6 +57,7 @@ message PFileName{
     string status = 3;
     string modified_by = 4;
     string modified = 5;
+    string type = 6; //helloAck hello fileNameUpdate
 }
 message PFileSeeder{
     string cid = 1;
@@ -94,6 +65,7 @@ message PFileSeeder{
     string status = 3;
     string modified_by = 4;
     string modified = 5;
+    string type = 6; //helloAck hello fileSeederUpdate
 }
 
 message Packet{

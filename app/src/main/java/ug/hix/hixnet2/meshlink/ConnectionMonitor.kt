@@ -191,7 +191,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"Sending devices")
                     try{
                         devices.forEach {
-                            val deviceSend = Hello(
+                            val deviceSend = DeviceNode(
                                 fromMeshID = MeshDaemon.device.meshID,
                                 meshID = it.device.meshID,
                                 Hops = it.device.hops,
@@ -202,7 +202,8 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                                 passPhrase = it.wifiConfig.passPhrase,
                                 version = it.device.version,
                                 status = it.device.status,
-                                modified = it.device.modified
+                                modified = it.device.modified,
+                                type = "meshHello"
                             )
                             licklider.loadData(message = deviceSend, toMeshId = connAddress)
                         }
@@ -213,7 +214,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"Sending file seeders")
                     try{
                         fileSeeders.forEach {
-                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
+                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHello")
                             licklider.loadData(pFileSeeder,it.modified_by)
                         }
                     }catch (e: Throwable) {
@@ -223,7 +224,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"SENDING FILE NAMES")
                     try{
                         fileNames.forEach {
-                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
+                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHello")
                             licklider.loadData(pFileName,it.modified_by)
                         }
                     }catch (e: Throwable) {
@@ -233,7 +234,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"SENDING NAMES")
                     try{
                         names.forEach {
-                            val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
+                            val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status,type = "nameHello")
                             licklider.loadData(pName,it.modified_by)
                         }
                     }catch (e: Throwable) {
