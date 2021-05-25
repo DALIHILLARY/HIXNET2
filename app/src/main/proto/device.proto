@@ -18,7 +18,42 @@ message DeviceNode{
     string modified = 13;
 
 }
+message Hello{
+    string meshID  = 1;
+    string multicastAddress = 2;
+    string publicKey = 3;
+    string macAddress  = 4;
+    string fromMeshID = 5;
+    //    repeated Service services = 6;
+    int32 Hops = 7;
+    bool  hasInternetWifi = 8;
+    string wifi = 9;
+    string passPhrase = 10;
+    string version = 11;
+    string status = 12; //ACTIVE / DISCONNECTED
+    string modified = 13;
 
+}
+message HelloAck{
+    string meshID  = 1;
+    string multicastAddress = 2;
+    string publicKey = 3;
+    string macAddress  = 4;
+    string fromMeshID = 5;
+    //    repeated Service services = 6;
+    int32 Hops = 7;
+    bool  hasInternetWifi = 8;
+    string wifi = 9;
+    string passPhrase = 10;
+    string version = 11;
+    string status = 12; //ACTIVE / DISCONNECTED
+    string modified = 13;
+
+}
+message Command{
+    string type = 1;
+    string from = 2;
+}
 message Service{
     string name = 1;
     int32 port = 2;

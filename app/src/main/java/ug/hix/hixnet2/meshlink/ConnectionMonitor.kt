@@ -29,16 +29,14 @@ import androidx.core.content.ContextCompat.startActivity
 import com.bumptech.glide.load.model.stream.BaseGlideUrlLoader
 import com.knexis.hotspot.Hotspot
 import kotlinx.coroutines.*
+import kotlinx.coroutines.NonCancellable.start
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.collect
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.licklider.Licklider
-import ug.hix.hixnet2.models.DeviceNode
-import ug.hix.hixnet2.models.PFileName
-import ug.hix.hixnet2.models.PFileSeeder
-import ug.hix.hixnet2.models.PName
+import ug.hix.hixnet2.models.*
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.AddConfigs
@@ -183,7 +181,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             connAddress?.let{
                 GlobalScope.launch {
                     val licklider = Licklider.start(mContext)
-                    licklider.loadData("HELLO",connAddress)
+                    licklider.loadData(Command("HELLO",MeshDaemon.device.multicastAddress),connAddress)
 
                     //send all tables to the master device
                     val fileSeeders = repo.getAllFileSeeders()
@@ -193,7 +191,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"Sending devices")
                     try{
                         devices.forEach {
-                            val deviceSend = DeviceNode(
+                            val deviceSend = Hello(
                                 fromMeshID = MeshDaemon.device.meshID,
                                 meshID = it.device.meshID,
                                 Hops = it.device.hops,
@@ -206,7 +204,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                                 status = it.device.status,
                                 modified = it.device.modified
                             )
-                            licklider.loadData(message = deviceSend, toMeshId = it.device.meshID)
+                            licklider.loadData(message = deviceSend, toMeshId = connAddress)
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello devices")

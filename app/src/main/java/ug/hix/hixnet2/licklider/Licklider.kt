@@ -46,10 +46,14 @@ class Licklider(private val mContext: Context){
         lateinit var buffer: ByteArray
         packet = packet.copy(packetID = Generator.genMID(),originalFromMeshID = Generator.getPID(),toMeshID = toMeshId)
         when (message) {
-            is String -> {
+//            is String -> {
+//                packet = packet.copy(messageType = "COMMAND",port = PORT)
+//                buffer  = message.toByteArray()
+//
+//            }
+            is Command -> {
                 packet = packet.copy(messageType = "COMMAND",port = PORT)
-                buffer  = message.toByteArray()
-
+                buffer  = Command.ADAPTER.encode(message)
             }
             is ACK -> {
                 packet = packet.copy(messageType = "ACK",port = PORT)
@@ -74,9 +78,16 @@ class Licklider(private val mContext: Context){
             }
             is DeviceNode -> {
                 packet = packet.copy(messageType = "meshUpdate",port = PORT)
-                val fineMessage = DeviceNode.ADAPTER.redact(message)
-                buffer  = DeviceNode.ADAPTER.encode(fineMessage)
-
+//                val fineMessage = DeviceNode.ADAPTER.redact(message)
+                buffer  = DeviceNode.ADAPTER.encode(message)
+            }
+            is HelloAck -> {
+                packet = packet.copy(messageType = "helloAck",port = PORT)
+                buffer  = HelloAck.ADAPTER.encode(message)
+            }
+            is Hello -> {
+                packet = packet.copy(messageType = "hello",port = PORT)
+                buffer  = Hello.ADAPTER.encode(message)
             }
             is TransFile -> {
                 packet = packet.copy(messageType = "FILE",port = PORT)
@@ -466,15 +477,16 @@ class Licklider(private val mContext: Context){
         return if (packetType.endsWith("update",true)){
            repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
 //            repo.getNearLinks()  //TEST get all the multiaddress with digits
-        }else{
-            if(packetType == "ACK"){
-//                TODO("get address nearest with file")
+        } else if(packetType == "ACK") {
+            //                TODO("get address nearest with file")
 //                this in a test will be deleted
+            listOf(repo.getLink(meshId))
+        } else if(packetType == "helloAck") {
+            listOf(Triple(meshId,"p2p0",1))
+        } else if(packetType == "hello") {
+            listOf(Triple(meshId, "wlan0", 1))
+        } else{
                 listOf(repo.getLink(meshId))
-            }else{
-                listOf(repo.getLink(meshId))
-            }
-
         }
 
     }
@@ -624,70 +636,72 @@ class Licklider(private val mContext: Context){
     private suspend fun decodeData(array : ByteArray , type : String, iFace: String){
         when(type){
             "COMMAND"  -> {
-                Log.d(TAG,"dataType : Command")
-                //this just a bunch of string commands
-                when(String(array)) {
-                    "HELLO" -> {
-                        val repo = Repository.getInstance(mContext)
-                        //send all tables to the slave device
-                        val fileSeeders = repo.getAllFileSeeders()
-                        val fileNames = repo.getAllFileNames()
-                        val names = repo.getAllNames()
-                        val devices = repo.getAllDevices()
-                        try{
-                            devices.forEach {
-                                val deviceSend = DeviceNode(
-                                    fromMeshID = MeshDaemon.device.meshID,
-                                    meshID = it.device.meshID,
-                                    Hops = it.device.hops,
-                                    macAddress = it.wifiConfig.mac,
-                                    publicKey = it.device.publicKey,
-                                    hasInternetWifi = it.device.hasInternetWifi,
-                                    wifi = it.wifiConfig.ssid,
-                                    passPhrase = it.wifiConfig.passPhrase,
-                                    version = it.device.version,
-                                    status = it.device.status,
-                                    modified = it.device.modified
-                                )
-                                loadData(message = deviceSend, toMeshId = it.device.meshID)
+                withContext(Dispatchers.IO){
+                    val command = Command.ADAPTER.decode(array)
+                    Log.d(TAG,"dataType : Command")
+                    //this just a bunch of string commands
+                    when(command.type) {
+                        "HELLO" -> {
+                            val repo = Repository.getInstance(mContext)
+                            //send all tables to the slave device
+                            val fileSeeders = repo.getAllFileSeeders()
+                            val fileNames = repo.getAllFileNames()
+                            val names = repo.getAllNames()
+                            val devices = repo.getAllDevices()
+                            try{
+                                devices.forEach {
+                                    val deviceSend = HelloAck(
+                                        fromMeshID = MeshDaemon.device.meshID,
+                                        meshID = it.device.meshID,
+                                        Hops = it.device.hops,
+                                        macAddress = it.wifiConfig.mac,
+                                        publicKey = it.device.publicKey,
+                                        hasInternetWifi = it.device.hasInternetWifi,
+                                        wifi = it.wifiConfig.ssid,
+                                        passPhrase = it.wifiConfig.passPhrase,
+                                        version = it.device.version,
+                                        status = it.device.status,
+                                        modified = it.device.modified
+                                    )
+                                    loadData(message = deviceSend, toMeshId = command.from)
+                                }
+                            }catch (e: Throwable) {
+                                Log.e(TAG, "Something happened to the ack hello devices",e)
+                                e.printStackTrace()
                             }
-                        }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello devices",e)
-                            e.printStackTrace()
-                        }
-                        try{
-                            fileSeeders.forEach {
-                                val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
-                                loadData(pFileSeeder,it.modified_by)
+                            try{
+                                fileSeeders.forEach {
+                                    val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID)
+                                    loadData(pFileSeeder,it.modified_by)
+                                }
+                            }catch (e: Throwable) {
+                                Log.e(TAG, "Something happened to the ack hello file seeder",e)
+                                e.printStackTrace()
                             }
-                        }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello file seeder",e)
-                            e.printStackTrace()
-                        }
-                        try{
-                            fileNames.forEach {
-                                val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
-                                loadData(pFileName,it.modified_by)
+                            try{
+                                fileNames.forEach {
+                                    val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID)
+                                    loadData(pFileName,it.modified_by)
+                                }
+                            }catch (e: Throwable) {
+                                Log.e(TAG, "Something happened to the ack hello filename ",e)
+                                e.printStackTrace()
                             }
-                        }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello filename ",e)
-                            e.printStackTrace()
-                        }
-                        try{
-                            names.forEach {
-                                val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
-                                loadData(pName,it.modified_by)
+                            try{
+                                names.forEach {
+                                    val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status)
+                                    loadData(pName,it.modified_by)
+                                }
+                            }catch (e: Throwable) {
+                                Log.e(TAG, "Something happened to the ack hello name",e)
+                                e.printStackTrace()
                             }
-                        }catch (e: Throwable) {
-                            Log.e(TAG, "Something happened to the ack hello name",e)
-                            e.printStackTrace()
                         }
-                    }
-                    "LEAVING" -> {
+                        "LEAVING" -> {
 
+                        }
                     }
                 }
-
             }
             "ACK"   -> {
                 Log.d(TAG,"dataType : ack")
