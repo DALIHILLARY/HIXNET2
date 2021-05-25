@@ -113,7 +113,6 @@ class Licklider(private val mContext: Context){
             (buffer!!.size + blockSize - 1) / blockSize
         }
         packet = packet.copy(expected = blockCount)
-
             if(file != null){
                 var i = 1
                 var readBuffer = ByteArray(1200)
@@ -465,8 +464,8 @@ class Licklider(private val mContext: Context){
     private fun getLink(meshId : String, packetType : String) : List<Triple<String,String,Int>> {
         val repo = Repository.getInstance(mContext)
         return if (packetType.endsWith("update",true)){
-//           repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
-            repo.getNearLinks()  //TEST get all the multiaddress with digits
+           repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
+//            repo.getNearLinks()  //TEST get all the multiaddress with digits
         }else{
             if(packetType == "ACK"){
 //                TODO("get address nearest with file")

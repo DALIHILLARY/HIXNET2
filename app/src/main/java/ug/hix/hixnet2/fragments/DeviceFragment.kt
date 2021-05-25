@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -84,7 +85,7 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
             })
         device_details.setOnClickListener {
             val connInfo = repo.getMyWifiConfig()
-            val json = Gson().toJson(connInfo)
+            val json = Gson().toJson(connInfo, WifiConfig::class.java)
             Log.d(TAG,json)
             val bitmap = generateQRCode(json)
             val image = ImageView(mContext)
@@ -93,7 +94,7 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
             dialog.setContentView(image)
             dialog.setTitle("Scan QrCode")
             dialog.show()
-            Handler().postDelayed({
+            Handler(Looper.getMainLooper()).postDelayed({
                 dialog.dismiss()
             },5000L)
         }

@@ -118,7 +118,6 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             when(intent.action) {
                 WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
                     // Determine if Wifi P2P mode is enabled or not
-
                     val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
                     if( state  != WifiP2pManager.WIFI_P2P_STATE_ENABLED){
                         Log.v(TAG,"P2P is disabled")
