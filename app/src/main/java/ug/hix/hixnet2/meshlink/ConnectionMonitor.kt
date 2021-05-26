@@ -193,6 +193,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                         devices.forEach {
                             val deviceSend = DeviceNode(
                                 fromMeshID = MeshDaemon.device.meshID,
+                                multicastAddress = MeshDaemon.device.multicastAddress,
                                 meshID = it.device.meshID,
                                 Hops = it.device.hops,
                                 macAddress = it.wifiConfig.mac,

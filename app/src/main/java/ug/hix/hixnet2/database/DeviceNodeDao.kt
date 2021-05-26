@@ -80,7 +80,7 @@ interface DeviceNodeDao {
     @Query("DELETE FROM devicenode WHERE multicastAddress LIKE :meshId")
     fun removeChildDevices(meshId: String)
 
-    @Query("SELECT * FROM devicenode WHERE isMe = 0 ORDER BY modified DESC LIMIT 1 ")
+    @Query("SELECT * FROM devicenode ORDER BY modified DESC LIMIT 1 ")
     fun getDeviceUpdateFlow(): Flow<DeviceNode?>
 
     @Query("SELECT multicastAddress FROM devicenode WHERE isMe = 1")
