@@ -47,6 +47,14 @@ class PName(
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
   val modified: String = "",
+  /**
+   * helloAck hello normal
+   */
+  @field:WireField(
+    tag = 6,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val type: String = "",
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<PName, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -64,6 +72,7 @@ class PName(
         && modified_by == other.modified_by
         && status == other.status
         && modified == other.modified
+        && type == other.type
   }
 
   override fun hashCode(): Int {
@@ -75,6 +84,7 @@ class PName(
       result = result * 37 + modified_by.hashCode()
       result = result * 37 + status.hashCode()
       result = result * 37 + modified.hashCode()
+      result = result * 37 + type.hashCode()
       super.hashCode = result
     }
     return result
@@ -87,6 +97,7 @@ class PName(
     result += """modified_by=${sanitize(modified_by)}"""
     result += """status=${sanitize(status)}"""
     result += """modified=${sanitize(modified)}"""
+    result += """type=${sanitize(type)}"""
     return result.joinToString(prefix = "PName{", separator = ", ", postfix = "}")
   }
 
@@ -96,8 +107,9 @@ class PName(
     modified_by: String = this.modified_by,
     status: String = this.status,
     modified: String = this.modified,
+    type: String = this.type,
     unknownFields: ByteString = this.unknownFields
-  ): PName = PName(name, name_slub, modified_by, status, modified, unknownFields)
+  ): PName = PName(name, name_slub, modified_by, status, modified, type, unknownFields)
 
   companion object {
     @JvmField
@@ -112,6 +124,7 @@ class PName(
         ProtoAdapter.STRING.encodedSizeWithTag(3, value.modified_by) +
         ProtoAdapter.STRING.encodedSizeWithTag(4, value.status) +
         ProtoAdapter.STRING.encodedSizeWithTag(5, value.modified) +
+        ProtoAdapter.STRING.encodedSizeWithTag(6, value.type) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: PName) {
@@ -120,6 +133,7 @@ class PName(
         if (value.modified_by != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.modified_by)
         if (value.status != "") ProtoAdapter.STRING.encodeWithTag(writer, 4, value.status)
         if (value.modified != "") ProtoAdapter.STRING.encodeWithTag(writer, 5, value.modified)
+        if (value.type != "") ProtoAdapter.STRING.encodeWithTag(writer, 6, value.type)
         writer.writeBytes(value.unknownFields)
       }
 
@@ -129,6 +143,7 @@ class PName(
         var modified_by: String = ""
         var status: String = ""
         var modified: String = ""
+        var type: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> name = ProtoAdapter.STRING.decode(reader)
@@ -136,6 +151,7 @@ class PName(
             3 -> modified_by = ProtoAdapter.STRING.decode(reader)
             4 -> status = ProtoAdapter.STRING.decode(reader)
             5 -> modified = ProtoAdapter.STRING.decode(reader)
+            6 -> type = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
@@ -145,6 +161,7 @@ class PName(
           modified_by = modified_by,
           status = status,
           modified = modified,
+          type = type,
           unknownFields = unknownFields
         )
       }

@@ -61,7 +61,6 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
             }else{
                 gray_out_home.visibility = VISIBLE
                 fabStart?.setImageResource(R.drawable.ic_start)
-
             }
             fabStart?.setOnClickListener {
                 if(System.currentTimeMillis() - fabLastClick >= 2000L){

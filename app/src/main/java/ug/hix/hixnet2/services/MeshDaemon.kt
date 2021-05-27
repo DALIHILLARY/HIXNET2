@@ -16,11 +16,9 @@ import ug.hix.hixnet2.HomeActivity
 import ug.hix.hixnet2.R
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.meshlink.ConnectionMonitor
-import ug.hix.hixnet2.meshlink.NetworkCardManager
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.util.NotifyChannel
-import kotlin.concurrent.thread
 
 class MeshDaemon : LifecycleService() {
     @ExperimentalCoroutinesApi
@@ -48,7 +46,7 @@ class MeshDaemon : LifecycleService() {
         )
 
         manager = applicationContext.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
-        channel =  NetworkCardManager.getChannelInstance(applicationContext,manager)
+        channel =  ConnectionMonitor.getChannelInstance(applicationContext,manager)
         connMonitor = ConnectionMonitor.getInstance(this,manager,channel)
 //        cardManager = NetworkCardManager.getNetworkManagerInstance(this,manager, channel, Dispatchers.Default)
 

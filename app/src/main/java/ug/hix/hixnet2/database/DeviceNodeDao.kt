@@ -8,7 +8,7 @@ import ug.hix.hixnet2.util.Util
 @Dao
 interface DeviceNodeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE, entity = WifiConfig::class)
-    fun addConfig( config :List<WifiConfig>)
+    fun addConfig( config : WifiConfig)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : List<DeviceNode>)
@@ -16,11 +16,11 @@ interface DeviceNodeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addDevice(device : DeviceNode)
 
-    fun addDeviceWithConfig(device: List<DeviceNode>, wifiConfig: List<WifiConfig>){
+    fun addDeviceWithConfig(device: DeviceNode, wifiConfig: WifiConfig){
         addConfig(wifiConfig) //first so as to avoid null in flow
         addDevice(device)
     }
-    @Delete()
+    @Delete
     fun removeDevice(device: DeviceNode)
 
     @Query("SELECT * FROM devicenode")
@@ -80,7 +80,7 @@ interface DeviceNodeDao {
     @Query("DELETE FROM devicenode WHERE multicastAddress LIKE :meshId")
     fun removeChildDevices(meshId: String)
 
-    @Query("SELECT * FROM devicenode WHERE isMe = 0 ORDER BY modified DESC LIMIT 1 ")
+    @Query("SELECT * FROM devicenode ORDER BY modified DESC LIMIT 1 ")
     fun getDeviceUpdateFlow(): Flow<DeviceNode?>
 
     @Query("SELECT multicastAddress FROM devicenode WHERE isMe = 1")

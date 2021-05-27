@@ -45,7 +45,7 @@ class FileFragment(val mContext: Context) : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
 
-        filesRecycleView.setOnTouchListener(object : OnSwipeTouchListener(activity){
+        filesLayout.setOnTouchListener(object : OnSwipeTouchListener(activity){
             override fun onSwipeLeft() {
                 super.onSwipeLeft()
                 filesSideBar.visibility = View.VISIBLE
