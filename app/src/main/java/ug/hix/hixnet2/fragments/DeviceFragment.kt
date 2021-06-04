@@ -61,7 +61,7 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
 
-        deviceLayout.setOnTouchListener(object : OnSwipeTouchListener(activity){
+        devicesRecycleView.setOnTouchListener(object : OnSwipeTouchListener(activity){
             override fun onSwipeLeft() {
                 super.onSwipeLeft()
                 devicesSideBar.visibility = View.VISIBLE

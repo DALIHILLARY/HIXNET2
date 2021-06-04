@@ -5,9 +5,10 @@ package ug.hix.hixnet2.models;
 message DeviceNode{
     string meshID  = 1;
     string multicastAddress = 2;
-    string publicKey = 3;
-    string macAddress  = 4;
-    string fromMeshID = 5;
+    string connAddress = 3;
+    string publicKey = 4;
+    string macAddress  = 5;
+    string fromMeshID = 6;
 //    repeated Service services = 6;
     int32 Hops = 7;
     bool  hasInternetWifi = 8;
@@ -58,6 +59,7 @@ message PFileName{
     string modified_by = 4;
     string modified = 5;
     string type = 6; //helloAck hello fileNameUpdate
+    int32 file_size = 7;
 }
 message PFileSeeder{
     string cid = 1;

@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import ug.hix.hixnet2.R
+import ug.hix.hixnet2.database.File
 import ug.hix.hixnet2.database.FileName
 import ug.hix.hixnet2.repository.Repository
 
@@ -32,11 +33,14 @@ class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, Cl
         private val cloudOptionsMenu: TextView = cloudView.findViewById(R.id.fileOptionsMenu)
 
         fun bind(fileName: FileName){
-            val file = repo.getFileByCid(fileName.CID)
-            file?.let{
+//            val cloudFile = repo.getCloudFileByCid(fileName)
+            val extensionCheck = fileName.name_slub.split('.')
+            val extension = if(extensionCheck.isNotEmpty()) extensionCheck.last() else "unknown"
+            val cloudFile = File("","",fileName.file_size,fileName.name_slub,extension,fileName.modified)
+            cloudFile.let {
                 cloudName.text = it.cloudName
-                cloudModified.text = it.modified
-                cloudSize.text = it.size.toString()
+                cloudModified.text = fileName.modified
+                cloudSize.text = fileName.file_size.toString()
 
                 when(it.extension.toLowerCase()){
                     "pdf" -> Glide.with(mContext.applicationContext).load(R.drawable.pdf).diskCacheStrategy(

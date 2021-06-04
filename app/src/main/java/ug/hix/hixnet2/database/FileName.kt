@@ -11,6 +11,7 @@ import ug.hix.hixnet2.util.Util
 data class FileName (
     val CID : String,
     val name_slub : String,
+    val file_size : Int,
     val status : String = "Added", //Added/Deleted
     val modified : String = Util.currentDateTime(),
     val modified_by : String

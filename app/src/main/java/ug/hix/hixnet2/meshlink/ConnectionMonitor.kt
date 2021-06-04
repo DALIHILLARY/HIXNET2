@@ -172,17 +172,22 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
     }
     private fun sendHello() {
-        sleep(1000L)
+        val licklider = Licklider.start(mContext)
+        val multicastAddress = repo.getMyDeviceInfo().multicastAddress
+        Licklider.receiverJob = licklider.receiver(multicastAddress)
+        sleep(2000L)
         //determine wifi type direct or normal fro ssid
         val conSSID = mWifiManager.connectionInfo.ssid
-        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"KALI",true)) {
+        //TODO("CHECK Both ssid and bssid, possible ssid duplicate")
+        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET")) {
             val connAddress = repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress
 //            val connAddress = repo.getMyDeviceInfo().meshID  //TESTING
             connAddress?.let{
                 GlobalScope.launch {
-                    val licklider = Licklider.start(mContext)
-                    licklider.loadData(Command("HELLO",MeshDaemon.device.multicastAddress),connAddress)
-
+                    val bonjour = Command("HELLO",MeshDaemon.device.multicastAddress)
+                    licklider.loadData(message = bonjour,toMeshId = connAddress)
+//                    val bonjour = Command("HELLO",MeshDaemon.device.multicastAddress)
+//                    licklider.loadData(message = bonjour,toMeshId = MeshDaemon.device.multicastAddress)
                     //send all tables to the master device
                     val fileSeeders = repo.getAllFileSeeders()
                     val fileNames = repo.getAllFileNames()
@@ -191,22 +196,26 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"Sending devices")
                     try{
                         devices.forEach {
-                            val deviceSend = DeviceNode(
-                                fromMeshID = MeshDaemon.device.meshID,
-                                multicastAddress = MeshDaemon.device.multicastAddress,
-                                meshID = it.device.meshID,
-                                Hops = it.device.hops,
-                                macAddress = it.wifiConfig.mac,
-                                publicKey = it.device.publicKey,
-                                hasInternetWifi = it.device.hasInternetWifi,
-                                wifi = it.wifiConfig.ssid,
-                                passPhrase = it.wifiConfig.passPhrase,
-                                version = it.device.version,
-                                status = it.device.status,
-                                modified = it.device.modified,
-                                type = "meshHello"
-                            )
-                            licklider.loadData(message = deviceSend, toMeshId = connAddress)
+                            it?.let {
+                                Log.e(TAG,"sending hello devices to : $connAddress")
+                                val deviceSend = DeviceNode(
+                                    fromMeshID = MeshDaemon.device.meshID,
+                                    multicastAddress = MeshDaemon.device.multicastAddress,
+                                    connAddress = it.wifiConfig.connAddress,
+                                    meshID = it.device.meshID,
+                                    Hops = it.device.hops,
+                                    macAddress = it.wifiConfig.mac,
+                                    publicKey = it.device.publicKey,
+                                    hasInternetWifi = it.device.hasInternetWifi,
+                                    wifi = it.wifiConfig.ssid,
+                                    passPhrase = it.wifiConfig.passPhrase,
+                                    version = it.device.version,
+                                    status = it.device.status,
+                                    modified = it.device.modified,
+                                    type = "meshHello"
+                                )
+                                licklider.loadData(message = deviceSend, toMeshId = connAddress)
+                            }
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello devices")
@@ -215,6 +224,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"Sending file seeders")
                     try{
                         fileSeeders.forEach {
+                            Log.e(TAG,"sending hello fileSeeders to : $connAddress")
                             val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHello")
                             licklider.loadData(pFileSeeder, toMeshId = connAddress)
                         }
@@ -225,7 +235,8 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"SENDING FILE NAMES")
                     try{
                         fileNames.forEach {
-                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHello")
+                            Log.e(TAG,"sending hello filenames to : $connAddress")
+                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,it.modified,"fileNameHello",it.file_size)
                             licklider.loadData(pFileName, toMeshId = connAddress)
                         }
                     }catch (e: Throwable) {
@@ -235,6 +246,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     Log.e(TAG,"SENDING NAMES")
                     try{
                         names.forEach {
+                            Log.e(TAG,"sending hello names to : $connAddress")
                             val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status,type = "nameHello")
                             licklider.loadData(pName, toMeshId = connAddress)
                         }
@@ -681,6 +693,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         }
     }
     companion object {
+        var isConnected = false //check if connected to  any wifi
         @SuppressLint("StaticFieldLeak")
         private var instance: ConnectionMonitor? = null
         private var channel: WifiP2pManager.Channel? = null

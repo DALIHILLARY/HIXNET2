@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.work.*
 import com.snatik.storage.Storage
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.toByteString
@@ -32,7 +31,6 @@ class Licklider(private val mContext: Context){
     private val TAG = javaClass.simpleName
     private var group : InetAddress? = null
     private val storage = Storage(mContext)
-    private lateinit var receiverJob: Job
 
     private val coroutineLock = Mutex()
     private var keyCounter = mutableMapOf<String, Int>()
@@ -167,24 +165,17 @@ class Licklider(private val mContext: Context){
                     }else{
                         Log.d("runningOut", " I AM ALMOST DONE HERE")
                     }
-
                 }
-
             }else{
                 var i = 1
-
                 while(i < blockCount){
                     val idx = (i - 1) * blockSize
                     val range = buffer!!. copyOfRange(idx, idx + blockSize)
-
                     packet = packet.copy(payload = range.toByteString(),offset = i)
-
                     runBlocking{
                         forward(packet)
                     }
-
                     i++
-
                 }
 
                 // Last chunk from the calculation
@@ -194,10 +185,8 @@ class Licklider(private val mContext: Context){
                 } else {
                     buffer.size % blockSize + blockSize * (blockCount - 1)
                 }
-
                 val range = buffer.copyOfRange((blockCount - 1) * blockSize, end)
                 packet = packet.copy(payload = range.toByteString(),offset = blockCount)
-
                 runBlocking{
                     forward(packet)
                 }
@@ -206,97 +195,17 @@ class Licklider(private val mContext: Context){
     }
 
     @ExperimentalCoroutinesApi
-    fun receiver(multicastAddress : String){
-        if(!multicastLock.isHeld){
-            multicastLock.acquire()
-        }
-
+    fun receiver(multicastAddress : String) : Job {
+//        if(!multicastLock.isHeld){
+//            multicastLock.acquire()
+//        }
+        multicastLock.acquire()
         if(group != null){
             endSocket()
         }
-
         group = InetAddress.getByName(multicastAddress)
-
-        receiverJob = GlobalScope.launch{
-            val repo = Repository.getInstance(mContext)
-
-            //coroutine for new device and cloud file listeners
-            launch {
-
-                /*
-                * CLoud file listeners
-                * listen for name changes, seeders a
-                 */
-                try {
-                    repo.getUpdatedNameFlow().collect { name ->
-                        name?.let {
-                            val pName = PName(it.name, it.name_slub,MeshDaemon.device.meshID,it.status,it.modified,type="nameUpdate")
-                            loadData(pName,it.modified_by)
-                        }
-                    }
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the name listener",e)
-                }
-            }
-            launch {
-                try {
-                    repo.getUpdatedFileNameFlow().collect { filename ->
-                        filename?.let {
-                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,it.modified,type = "fileNameUpdate")
-                            loadData(pFileName,it.modified_by)
-                        }
-                    }
-
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the filename listener",e)
-                }
-            }
-            launch {
-//                fileSeeder listener
-                try {
-                    repo.getUpdatedFileSeederFlow().collect { fileSeeder ->
-                        fileSeeder?.let {
-                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,it.modified,type = "fileSeederUpdate")
-                            loadData(pFileSeeder,it.modified_by)
-                        }
-                    }
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the fileSeeder listener",e)
-                }
-            }
-            launch {
-
-//                new device listener
-                try {
-                    repo.getUpdatedDeviceFlow().collect {
-                        it?.let{
-                            val deviceSend = DeviceNode(
-                                fromMeshID = MeshDaemon.device.meshID,
-                                meshID = it.device.meshID,
-                                multicastAddress = if (it.device.meshID == MeshDaemon.device.meshID) MeshDaemon.device.multicastAddress else {MeshDaemon.device.meshID},
-                                Hops = it.device.hops,
-                                macAddress = it.wifiConfig.mac,
-                                publicKey = it.device.publicKey,
-                                hasInternetWifi = it.device.hasInternetWifi,
-                                wifi = it.wifiConfig.ssid,
-                                passPhrase = it.wifiConfig.passPhrase,
-                                version = it.device.version,
-                                status = it.device.status,
-                                modified = it.device.modified,
-                                type = "meshUpdate"
-                            )
-                            Log.d(TAG, "New device detected: $it")
-                            loadData(message = deviceSend, toMeshId = it.device.meshID)
-                            if (it.device.status == "DISCONNECTED") repo.deleteDevice(it.device)
-
-                        }
-
-                    }
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Something happened to the device listener",e)
-                }
-            }
-
+        Log.e(TAG,"New receiver socket create")
+        return GlobalScope.launch{
             launch{
                 withContext(Dispatchers.IO){
                     p2pSocket.joinGroup(InetSocketAddress(group,PORT),p2p0)
@@ -307,7 +216,7 @@ class Licklider(private val mContext: Context){
                     withContext(Dispatchers.IO){
                         p2pSocket.receive(packet)
                     }
-//                    Log.d("p2p0receiver","data received")
+//                    Log.d("p2p0receiver","p2p0 data received")
                     launch{
                         packetHandler(packet.data, "p2p0")
                     }
@@ -324,7 +233,7 @@ class Licklider(private val mContext: Context){
                     withContext(Dispatchers.IO){
                         wlanSocket.receive(packet)
                     }
-//                    Log.d("wlan0receiver","data received")
+//                    Log.d("wlan0receiver","wlan0 data received")
                     launch{
                         packetHandler(packet.data,"wlan0")
                     }
@@ -336,7 +245,6 @@ class Licklider(private val mContext: Context){
                         queueBuffer.forEach { packet ->
                             coroutineLock.withLock {
                                 queueBuffer.remove(packet)
-
                             }
                             forward(packet)
                             Log.d(TAG,"removed packet: $packet remaining buffer: $queueBuffer")
@@ -469,7 +377,7 @@ class Licklider(private val mContext: Context){
         return when {
             packetType.endsWith("update",true) -> {
                 repo.getNearLinks(meshId) //get all neighbour links except parent of meshId
-//            repo.getNearLinks()  //TEST get all the multiaddress with digits
+//            repo.getNearLinks()  //TEST get all the multiAddress with digits
             }
             packetType == "ACK" -> {
                 //                TODO("get address nearest with file")
@@ -572,7 +480,6 @@ class Licklider(private val mContext: Context){
 
                             }
 //                        }
-
                         }
                         else -> {
                             myMessagesQueue.add(packet)
@@ -584,9 +491,7 @@ class Licklider(private val mContext: Context){
                                 fullyReceived.sortedBy { it.offset }.forEach {
                                     info += it.payload.toByteArray()
                                 }
-
                                 decodeData(info, packet.messageType,iFace)
-
                             }
                         }
                     }
@@ -633,7 +538,6 @@ class Licklider(private val mContext: Context){
     private suspend fun decodeData(array : ByteArray , type : String, iFace: String){
         when{
             type == "HELLO" -> {
-                Log.d(TAG,"HELLO RECEIVED")
                 withContext(Dispatchers.IO) {
                     val command = Command.ADAPTER.decode(array)
                     val repo = Repository.getInstance(mContext)
@@ -644,22 +548,26 @@ class Licklider(private val mContext: Context){
                     val devices = repo.getAllDevices()
                     try{
                         devices.forEach {
-                            val deviceSend = DeviceNode(
-                                fromMeshID = MeshDaemon.device.meshID,
-                                meshID = it.device.meshID,
-                                multicastAddress = if (it.device.meshID == MeshDaemon.device.meshID) MeshDaemon.device.multicastAddress else {MeshDaemon.device.meshID},
-                                Hops = it.device.hops,
-                                macAddress = it.wifiConfig.mac,
-                                publicKey = it.device.publicKey,
-                                hasInternetWifi = it.device.hasInternetWifi,
-                                wifi = it.wifiConfig.ssid,
-                                passPhrase = it.wifiConfig.passPhrase,
-                                version = it.device.version,
-                                status = it.device.status,
-                                modified = it.device.modified,
-                                type = "meshHelloAck"
-                            )
-                            loadData(message = deviceSend, toMeshId = command.from)
+                            Log.e(TAG,"sending helloAck devices to : ${command.from}")
+                            it?.let {
+                                val deviceSend = DeviceNode(
+                                    fromMeshID = MeshDaemon.device.meshID,
+                                    meshID = it.device.meshID,
+                                    multicastAddress = if (it.device.meshID == MeshDaemon.device.meshID) MeshDaemon.device.multicastAddress else {MeshDaemon.device.meshID},
+                                    connAddress = it.wifiConfig.connAddress,
+                                    Hops = it.device.hops,
+                                    macAddress = it.wifiConfig.mac,
+                                    publicKey = it.device.publicKey,
+                                    hasInternetWifi = it.device.hasInternetWifi,
+                                    wifi = it.wifiConfig.ssid,
+                                    passPhrase = it.wifiConfig.passPhrase,
+                                    version = it.device.version,
+                                    status = it.device.status,
+                                    modified = it.device.modified,
+                                    type = "meshHelloAck"
+                                )
+                                loadData(message = deviceSend, toMeshId = command.from)
+                            }
                         }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the ack hello devices",e)
@@ -667,6 +575,7 @@ class Licklider(private val mContext: Context){
                     }
                     try{
                         fileSeeders.forEach {
+                            Log.e(TAG,"sending helloAck fileseeders to : ${command.from}")
                             val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHelloAck")
                             loadData(pFileSeeder, toMeshId = command.from)
                         }
@@ -676,7 +585,8 @@ class Licklider(private val mContext: Context){
                     }
                     try{
                         fileNames.forEach {
-                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,type = "fileNameHelloAck")
+                            Log.e(TAG,"sending helloAck filenames to : ${command.from}")
+                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,it.modified,"fileNameHelloAck",it.file_size)
                             loadData(pFileName, toMeshId = command.from)
                         }
                     }catch (e: Throwable) {
@@ -685,6 +595,7 @@ class Licklider(private val mContext: Context){
                     }
                     try{
                         names.forEach {
+                            Log.e(TAG,"sending helloAck names to : ${command.from}")
                             val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status, type = "nameHelloAck")
                             loadData(pName, toMeshId = command.from)
                         }
@@ -745,10 +656,9 @@ class Licklider(private val mContext: Context){
             type.startsWith("fileName") -> {
                 Log.d(TAG,"RECEIVED FILENAME")
                 val pFileName = withContext(Dispatchers.IO){PFileName.ADAPTER.decode(array)}
-                val fileName = FileName(pFileName.cid,pFileName.name_slub,pFileName.status,pFileName.modified,pFileName.modified_by)
+                val fileName = FileName(pFileName.cid,pFileName.name_slub,pFileName.file_size,pFileName.status,pFileName.modified,pFileName.modified_by)
                 val repo = Repository.getInstance(mContext)
                 repo.updateFileName(fileName)
-
             }
             type.startsWith("mesh") -> {
                 Log.d(TAG,"RECEIVED MESH")
@@ -768,7 +678,8 @@ class Licklider(private val mContext: Context){
                         meshID = deviceUpdate.meshID,
                         mac = deviceUpdate.macAddress,
                         ssid = deviceUpdate.wifi,
-                        passPhrase = deviceUpdate.passPhrase
+                        passPhrase = deviceUpdate.passPhrase,
+                        connAddress = deviceUpdate.connAddress
                     )
 
                 val repo = Repository.getInstance(mContext)
@@ -787,11 +698,14 @@ class Licklider(private val mContext: Context){
         val device = MeshDaemon.device
 //        private val filesHashMap = MeshDaemon.filesHashMap
 
+        private val companionTAG = "CompanionLicklider"
         private const val PORT = 33456
         private val p2pSocket = MulticastSocket(PORT)
         private val wlanSocket = MulticastSocket(PORT)
         private val p2p0 = NetworkInterface.getByName("p2p0")
         private val wlan0 = NetworkInterface.getByName("wlan0")
+
+        lateinit var receiverJob: Job //keep reference to the rceiver job for easy destroying
 
         @JvmStatic private var primaryBuffers = mutableListOf<Packet>()
         @JvmStatic  private var queueBuffer = mutableListOf<Packet>()
@@ -807,13 +721,14 @@ class Licklider(private val mContext: Context){
         @JvmStatic
         @Synchronized private suspend fun send(packet : ByteArray?, ipAddress : String?, port : Int?, iface: String){
             withContext(Dispatchers.IO){
+                multicastLock.setReferenceCounted(false)
                 if(!multicastLock.isHeld){
                     multicastLock.acquire()
                 }
-                val receiver = InetAddress.getByName(ipAddress)
-                val payload = DatagramPacket(packet,packet!!.size,receiver,port!!)
-
                 try{
+                    val receiver = InetAddress.getByName(ipAddress)
+                    val payload = DatagramPacket(packet,packet!!.size,receiver,port!!)
+
                     if(iface == "wlan0"){
                         wlanSocket.networkInterface = wlan0
                         wlanSocket.send(payload)
@@ -823,6 +738,7 @@ class Licklider(private val mContext: Context){
                     }
 
                 }catch (e : Exception){
+                    Log.e(companionTAG,"ERROR OCCURRED WHILE SENDING",e)
                     e.printStackTrace()
                 }
             }

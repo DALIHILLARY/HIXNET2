@@ -48,13 +48,18 @@ class PFileName(
   )
   val modified: String = "",
   /**
-   * helloAck hello norma
+   * helloAck hello fileNameUpdate
    */
   @field:WireField(
     tag = 6,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
   val type: String = "",
+  @field:WireField(
+    tag = 7,
+    adapter = "com.squareup.wire.ProtoAdapter#INT32"
+  )
+  val file_size: Int = 0,
   unknownFields: ByteString = ByteString.EMPTY
 ) : Message<PFileName, Nothing>(ADAPTER, unknownFields) {
   @Deprecated(
@@ -73,6 +78,7 @@ class PFileName(
         && modified_by == other.modified_by
         && modified == other.modified
         && type == other.type
+        && file_size == other.file_size
   }
 
   override fun hashCode(): Int {
@@ -85,6 +91,7 @@ class PFileName(
       result = result * 37 + modified_by.hashCode()
       result = result * 37 + modified.hashCode()
       result = result * 37 + type.hashCode()
+      result = result * 37 + file_size.hashCode()
       super.hashCode = result
     }
     return result
@@ -98,6 +105,7 @@ class PFileName(
     result += """modified_by=${sanitize(modified_by)}"""
     result += """modified=${sanitize(modified)}"""
     result += """type=${sanitize(type)}"""
+    result += """file_size=$file_size"""
     return result.joinToString(prefix = "PFileName{", separator = ", ", postfix = "}")
   }
 
@@ -108,8 +116,10 @@ class PFileName(
     modified_by: String = this.modified_by,
     modified: String = this.modified,
     type: String = this.type,
+    file_size: Int = this.file_size,
     unknownFields: ByteString = this.unknownFields
-  ): PFileName = PFileName(cid, name_slub, status, modified_by, modified, type, unknownFields)
+  ): PFileName = PFileName(cid, name_slub, status, modified_by, modified, type, file_size,
+      unknownFields)
 
   companion object {
     @JvmField
@@ -125,6 +135,7 @@ class PFileName(
         ProtoAdapter.STRING.encodedSizeWithTag(4, value.modified_by) +
         ProtoAdapter.STRING.encodedSizeWithTag(5, value.modified) +
         ProtoAdapter.STRING.encodedSizeWithTag(6, value.type) +
+        ProtoAdapter.INT32.encodedSizeWithTag(7, value.file_size) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: PFileName) {
@@ -134,6 +145,7 @@ class PFileName(
         if (value.modified_by != "") ProtoAdapter.STRING.encodeWithTag(writer, 4, value.modified_by)
         if (value.modified != "") ProtoAdapter.STRING.encodeWithTag(writer, 5, value.modified)
         if (value.type != "") ProtoAdapter.STRING.encodeWithTag(writer, 6, value.type)
+        if (value.file_size != 0) ProtoAdapter.INT32.encodeWithTag(writer, 7, value.file_size)
         writer.writeBytes(value.unknownFields)
       }
 
@@ -144,6 +156,7 @@ class PFileName(
         var modified_by: String = ""
         var modified: String = ""
         var type: String = ""
+        var file_size: Int = 0
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
             1 -> cid = ProtoAdapter.STRING.decode(reader)
@@ -152,6 +165,7 @@ class PFileName(
             4 -> modified_by = ProtoAdapter.STRING.decode(reader)
             5 -> modified = ProtoAdapter.STRING.decode(reader)
             6 -> type = ProtoAdapter.STRING.decode(reader)
+            7 -> file_size = ProtoAdapter.INT32.decode(reader)
             else -> reader.readUnknownField(tag)
           }
         }
@@ -162,6 +176,7 @@ class PFileName(
           modified_by = modified_by,
           modified = modified,
           type = type,
+          file_size = file_size,
           unknownFields = unknownFields
         )
       }

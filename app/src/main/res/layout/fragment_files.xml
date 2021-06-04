@@ -15,7 +15,7 @@
 
         <androidx.appcompat.widget.SearchView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
                 android:id="@+id/file_search"
                 app:defaultQueryHint="Search By File Name Or CID"
                 app:queryBackground="@null"
@@ -26,14 +26,15 @@
                 app:layout_constraintStart_toStartOf="parent"/>
         <androidx.recyclerview.widget.RecyclerView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
                 android:id="@+id/filesRecycleView"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 tools:listitem="@layout/file_item"
                 app:layout_constraintEnd_toEndOf="parent" app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@+id/file_search"
-                app:layout_constraintHorizontal_bias="0.0" app:layout_constraintVertical_bias="0.0">
+                app:layout_constraintHorizontal_bias="0.0" app:layout_constraintVertical_bias="0.0"
+        >
 
         </androidx.recyclerview.widget.RecyclerView>
         <FrameLayout

@@ -5,9 +5,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity
+@Entity(primaryKeys = ["ssid","passPhrase"])
 data class WifiConfig(
-    @PrimaryKey
     val meshID : String,
     val netId : Int = 0,
     val ssid : String = "",

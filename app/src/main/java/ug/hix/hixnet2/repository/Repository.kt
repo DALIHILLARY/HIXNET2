@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.map
 import ug.hix.hixnet2.database.*
 import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.Util
+import java.lang.Thread.sleep
 
 class Repository(val context : Context) {
 
@@ -26,6 +27,16 @@ class Repository(val context : Context) {
     }
     fun getFileNames() : List<FileName> {
         return runBlocking(Dispatchers.IO) { fileDao.getFileNames()}
+    }
+    fun getCloudFileByCid(filename: FileName) : File? {
+        val readableName = runBlocking(Dispatchers.IO){ fileDao.getName(filename.CID) }
+        return if(readableName != null) {
+            val extensionList = filename.name_slub.split('.')
+            val extension = if(extensionList.isNotEmpty()) extensionList.last() else "null"
+            File("","",0,readableName.name,extension)
+        }else{
+            null
+        }
     }
     fun getFileByCid(cid: String) : File? {
         return runBlocking(Dispatchers.IO){fileDao.getFileByCid(cid)}
@@ -93,7 +104,7 @@ class Repository(val context : Context) {
                 fileDao.addName(Name(nameSlub!!, file.cloudName,modified_by = device))
             }
             fileDao.insertAll(file)
-            fileDao.addFileName(FileName(file.CID,nameSlub,modified_by = device))
+            fileDao.addFileName(FileName(file.CID,nameSlub,file.size,modified_by = device))
             fileDao.addFileSeeder(FileSeeder(CID = file.CID, meshID = device,modified_by = device))
         }
     }
@@ -184,23 +195,26 @@ class Repository(val context : Context) {
     @ExperimentalCoroutinesApi
     fun getUpdatedDeviceFlow(): Flow<DeviceNodeWithWifiConfig?>{
         return deviceDao.getDeviceUpdateFlow().map { device ->
-            if(device != null ){
-                DeviceNodeWithWifiConfig(
-                    device = device,
-                    wifiConfig = getWifiConfigByMeshId(device.meshID)
-                )
-            }else
-                null
+            device?.let{
+                getWifiConfigByMeshId(device.meshID)?.let {
+                    DeviceNodeWithWifiConfig(
+                        device = device,
+                        wifiConfig = it
+                    )
+                }
+            }
 
         }.distinctUntilChanged()
     }
-    fun getAllDevices(): List<DeviceNodeWithWifiConfig> {
+    fun getAllDevices(): List<DeviceNodeWithWifiConfig?> {
         return runBlocking(Dispatchers.IO) {
             deviceDao.getAllDevices().map { device ->
-                DeviceNodeWithWifiConfig(
-                    device = device,
-                    wifiConfig = getWifiConfigByMeshId(device.meshID)
-                )
+                getWifiConfigByMeshId(device.meshID)?.let {
+                    DeviceNodeWithWifiConfig(
+                        device = device,
+                        wifiConfig = it
+                    )
+                }
             }
         }
     }
@@ -228,14 +242,14 @@ class Repository(val context : Context) {
     fun isWifiConfig(ssid: String) : Boolean {
         return runBlocking(Dispatchers.IO) {wifiDao.getWifiConfigBySsidList(ssid).isNotEmpty()}
     }
-    fun getWifiConfigByMac(mac : String) : WifiConfig {
+    fun getWifiConfigByMac(mac : String) : WifiConfig? {
         return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigByMac(mac) }
     }
-    private fun getWifiConfigByMeshId(meshId: String) : WifiConfig {
+    private fun getWifiConfigByMeshId(meshId: String) : WifiConfig? {
         return runBlocking(Dispatchers.IO) { wifiDao.getWifiConfigByMeshId(meshId) }
     }
-    fun getMyWifiConfig() : WifiConfig {
-        return runBlocking(Dispatchers.IO) { wifiDao.getMyConfig() }
+    fun getMyWifiConfig() : WifiConfig? {
+        return runBlocking(Dispatchers.IO) { wifiDao.getMyConfig(MeshDaemon.device.meshID) }
     }
 
 

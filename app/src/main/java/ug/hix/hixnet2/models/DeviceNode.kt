@@ -36,14 +36,19 @@ class DeviceNode(
     tag = 3,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  val publicKey: String = "",
+  val connAddress: String = "",
   @field:WireField(
     tag = 4,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
-  val macAddress: String = "",
+  val publicKey: String = "",
   @field:WireField(
     tag = 5,
+    adapter = "com.squareup.wire.ProtoAdapter#STRING"
+  )
+  val macAddress: String = "",
+  @field:WireField(
+    tag = 6,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
   )
   val fromMeshID: String = "",
@@ -89,7 +94,7 @@ class DeviceNode(
   )
   val modified: String = "",
   /**
-   * helloAck hello normal
+   * helloAck hello meshUpdate
    */
   @field:WireField(
     tag = 14,
@@ -110,6 +115,7 @@ class DeviceNode(
     return unknownFields == other.unknownFields
         && meshID == other.meshID
         && multicastAddress == other.multicastAddress
+        && connAddress == other.connAddress
         && publicKey == other.publicKey
         && macAddress == other.macAddress
         && fromMeshID == other.fromMeshID
@@ -129,6 +135,7 @@ class DeviceNode(
       result = unknownFields.hashCode()
       result = result * 37 + meshID.hashCode()
       result = result * 37 + multicastAddress.hashCode()
+      result = result * 37 + connAddress.hashCode()
       result = result * 37 + publicKey.hashCode()
       result = result * 37 + macAddress.hashCode()
       result = result * 37 + fromMeshID.hashCode()
@@ -149,6 +156,7 @@ class DeviceNode(
     val result = mutableListOf<String>()
     result += """meshID=${sanitize(meshID)}"""
     result += """multicastAddress=${sanitize(multicastAddress)}"""
+    result += """connAddress=${sanitize(connAddress)}"""
     result += """publicKey=${sanitize(publicKey)}"""
     result += """macAddress=${sanitize(macAddress)}"""
     result += """fromMeshID=${sanitize(fromMeshID)}"""
@@ -166,6 +174,7 @@ class DeviceNode(
   fun copy(
     meshID: String = this.meshID,
     multicastAddress: String = this.multicastAddress,
+    connAddress: String = this.connAddress,
     publicKey: String = this.publicKey,
     macAddress: String = this.macAddress,
     fromMeshID: String = this.fromMeshID,
@@ -178,8 +187,9 @@ class DeviceNode(
     modified: String = this.modified,
     type: String = this.type,
     unknownFields: ByteString = this.unknownFields
-  ): DeviceNode = DeviceNode(meshID, multicastAddress, publicKey, macAddress, fromMeshID, Hops,
-      hasInternetWifi, wifi, passPhrase, version, status, modified, type, unknownFields)
+  ): DeviceNode = DeviceNode(meshID, multicastAddress, connAddress, publicKey, macAddress,
+      fromMeshID, Hops, hasInternetWifi, wifi, passPhrase, version, status, modified, type,
+      unknownFields)
 
   companion object {
     @JvmField
@@ -191,9 +201,10 @@ class DeviceNode(
       override fun encodedSize(value: DeviceNode): Int = 
         ProtoAdapter.STRING.encodedSizeWithTag(1, value.meshID) +
         ProtoAdapter.STRING.encodedSizeWithTag(2, value.multicastAddress) +
-        ProtoAdapter.STRING.encodedSizeWithTag(3, value.publicKey) +
-        ProtoAdapter.STRING.encodedSizeWithTag(4, value.macAddress) +
-        ProtoAdapter.STRING.encodedSizeWithTag(5, value.fromMeshID) +
+        ProtoAdapter.STRING.encodedSizeWithTag(3, value.connAddress) +
+        ProtoAdapter.STRING.encodedSizeWithTag(4, value.publicKey) +
+        ProtoAdapter.STRING.encodedSizeWithTag(5, value.macAddress) +
+        ProtoAdapter.STRING.encodedSizeWithTag(6, value.fromMeshID) +
         ProtoAdapter.INT32.encodedSizeWithTag(7, value.Hops) +
         ProtoAdapter.BOOL.encodedSizeWithTag(8, value.hasInternetWifi) +
         ProtoAdapter.STRING.encodedSizeWithTag(9, value.wifi) +
@@ -208,9 +219,10 @@ class DeviceNode(
         if (value.meshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 1, value.meshID)
         if (value.multicastAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 2,
             value.multicastAddress)
-        if (value.publicKey != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.publicKey)
-        if (value.macAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 4, value.macAddress)
-        if (value.fromMeshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 5, value.fromMeshID)
+        if (value.connAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 3, value.connAddress)
+        if (value.publicKey != "") ProtoAdapter.STRING.encodeWithTag(writer, 4, value.publicKey)
+        if (value.macAddress != "") ProtoAdapter.STRING.encodeWithTag(writer, 5, value.macAddress)
+        if (value.fromMeshID != "") ProtoAdapter.STRING.encodeWithTag(writer, 6, value.fromMeshID)
         if (value.Hops != 0) ProtoAdapter.INT32.encodeWithTag(writer, 7, value.Hops)
         if (value.hasInternetWifi != false) ProtoAdapter.BOOL.encodeWithTag(writer, 8,
             value.hasInternetWifi)
@@ -226,6 +238,7 @@ class DeviceNode(
       override fun decode(reader: ProtoReader): DeviceNode {
         var meshID: String = ""
         var multicastAddress: String = ""
+        var connAddress: String = ""
         var publicKey: String = ""
         var macAddress: String = ""
         var fromMeshID: String = ""
@@ -241,9 +254,10 @@ class DeviceNode(
           when (tag) {
             1 -> meshID = ProtoAdapter.STRING.decode(reader)
             2 -> multicastAddress = ProtoAdapter.STRING.decode(reader)
-            3 -> publicKey = ProtoAdapter.STRING.decode(reader)
-            4 -> macAddress = ProtoAdapter.STRING.decode(reader)
-            5 -> fromMeshID = ProtoAdapter.STRING.decode(reader)
+            3 -> connAddress = ProtoAdapter.STRING.decode(reader)
+            4 -> publicKey = ProtoAdapter.STRING.decode(reader)
+            5 -> macAddress = ProtoAdapter.STRING.decode(reader)
+            6 -> fromMeshID = ProtoAdapter.STRING.decode(reader)
             7 -> Hops = ProtoAdapter.INT32.decode(reader)
             8 -> hasInternetWifi = ProtoAdapter.BOOL.decode(reader)
             9 -> wifi = ProtoAdapter.STRING.decode(reader)
@@ -258,6 +272,7 @@ class DeviceNode(
         return DeviceNode(
           meshID = meshID,
           multicastAddress = multicastAddress,
+          connAddress = connAddress,
           publicKey = publicKey,
           macAddress = macAddress,
           fromMeshID = fromMeshID,

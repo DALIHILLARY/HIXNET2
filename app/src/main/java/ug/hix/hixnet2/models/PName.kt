@@ -48,7 +48,7 @@ class PName(
   )
   val modified: String = "",
   /**
-   * helloAck hello normal
+   * helloAck hello nameUpdate
    */
   @field:WireField(
     tag = 6,
