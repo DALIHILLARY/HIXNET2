@@ -37,7 +37,7 @@ import ug.hix.hixnet2.workers.SendFileWorker
 class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFragAdapter.FileFragViewHolder>(DIFF_CALLBACK), Filterable {
     private val repo = Repository.getInstance(context)
     private var filteredFileList = listOf<File>()
-    private val fileList = repo.getAllFiles()
+    private val fileList = runBlocking { repo.getAllFiles() }
     private val TAG = javaClass.simpleName
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FileFragViewHolder {
         val v = LayoutInflater.from(parent.context)
@@ -78,7 +78,7 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
                 in listOf("zip","tar","tz") -> Glide.with(context.applicationContext).load(R.drawable.zip).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().into(fileIcon)
-                in listOf("mp4","jpg","mkv","3gp") ->  Glide.with(context.applicationContext).load(JFile(file.path)).diskCacheStrategy(
+                in listOf("mp4","jpg","mkv","3gp") ->  Glide.with(context.applicationContext).load(JFile(file.path!!)).diskCacheStrategy(
                     DiskCacheStrategy.ALL).skipMemoryCache(true).fitCenter().centerCrop().into(fileIcon)
 
             }
@@ -122,7 +122,7 @@ class FileFragAdapter(private val context: Context) : ListAdapter<File, FileFrag
 //                            TODO("Open an activity showing info")
                         }
                         R.id.filesDelete -> {
-                                repo.deleteFile(file)
+                               runBlocking { repo.deleteFile(file) }
                         }
                         R.id.filesEdit -> {
 //                            TODO("modify name in database")

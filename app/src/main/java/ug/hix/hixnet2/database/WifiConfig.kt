@@ -11,6 +11,7 @@ data class WifiConfig(
     val netId : Int = 0,
     val ssid : String = "",
     val mac  : String = "",
+    val active : Boolean = false,
     val passPhrase : String = "",
     val connAddress : String = ""
 )

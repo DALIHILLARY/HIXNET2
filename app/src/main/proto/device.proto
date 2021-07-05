@@ -18,7 +18,6 @@ message DeviceNode{
     string status = 12; //ACTIVE / DISCONNECTED
     string modified = 13;
     string type = 14; //helloAck hello meshUpdate
-
 }
 message Command{
     string type = 1;

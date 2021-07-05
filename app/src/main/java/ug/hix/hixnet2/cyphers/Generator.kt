@@ -41,7 +41,7 @@ open class Generator {
         }
 
         
-        private fun createKeys(context: Context){
+        private suspend fun createKeys(context: Context){
             val deviceDb = hixNetInstance?.deviceNodeDao()
 
             val kpg = KeyPairGenerator.getInstance("RSA")
@@ -85,10 +85,14 @@ open class Generator {
         }
 
         fun getPID() : String{
+            if(pid == null) {
+                val deviceDb = hixNetInstance?.deviceNodeDao()
+                pid   = deviceDb?.getMyPid().toString()
+            }
             return pid
         }
 
-        fun getMultiAddress(context: Context, scanAddress: String?) : String {
+        suspend fun getMultiAddress(context: Context, scanAddress: String?) : String {
             var address = ""
             if(scanAddress != null){
                 val device = Repository.getInstance(context).getMyDeviceInfo()
@@ -127,19 +131,13 @@ open class Generator {
                 if(count > 3){
                     break
                 }
-                var number = (1 + Random().nextInt(254 - 1)).toString()
-                if(number.length == 1){
-                    number = "00$number"
-                }else if(number.length == 2){
-                    number = "0$number"
-                }
+                val number = (1 + Random().nextInt(254 - 1)).toString()
                 numberList.add(number)
-
             }
             return "230." + numberList.joinToString(separator = ".")
 
         }
-        fun getBadMultiAddress(context: Context) : String{
+        suspend fun getBadMultiAddress(context: Context) : String{
             return Repository.getInstance(context).getNearMultiAddresses().joinToString("::")
         }
 
@@ -159,7 +157,7 @@ open class Generator {
             return kf.generatePublic(ks)
         }
 
-        fun loadKeys(context: Context){
+        suspend fun loadKeys(context: Context){
             val deviceDb = hixNetInstance?.deviceNodeDao()
             priKeyS = deviceDb?.getMyPrivateKey().toString()
             pubKeyS = deviceDb?.getMyPublicKey().toString()

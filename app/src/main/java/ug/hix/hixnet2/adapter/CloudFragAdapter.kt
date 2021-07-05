@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.R
 import ug.hix.hixnet2.database.File
 import ug.hix.hixnet2.database.FileName
@@ -22,7 +23,7 @@ import ug.hix.hixnet2.repository.Repository
 class CloudFragAdapter(private val mContext: Context) : ListAdapter<FileName, CloudFragAdapter.CloudViewHolder>(DIFF_CALLBACK), Filterable{
     private val repo = Repository.getInstance(mContext)
     private var filteredFileNameList = listOf<FileName>()
-    private val fileNameList =  repo.getFileNames()
+    private val fileNameList =  runBlocking { repo.getFileNames() }
     private val TAG = javaClass.simpleName
 
     inner class CloudViewHolder(cloudView: View) : RecyclerView.ViewHolder(cloudView){

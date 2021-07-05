@@ -25,6 +25,9 @@ interface WifiConfigDao {
     @Query("SELECT * FROM wificonfig WHERE ssid = :ssid")
     fun getWifiConfigBySsid(ssid : String) : WifiConfig?
 
+    @Query("UPDATE wificonfig SET active = :status WHERE meshID = :meshId")
+    fun updateWifiStatusBySsid(meshId: String, status: Int)
+
     @Query("SELECT netId FROM wificonfig WHERE ssid = :ssid")
     fun getWifiNetId(ssid : String) : Int
 

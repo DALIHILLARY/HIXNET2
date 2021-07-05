@@ -3,6 +3,7 @@ package ug.hix.hixnet2.workers
 import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.runBlocking
 
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.repository.Repository
@@ -16,7 +17,7 @@ class UploadWorker(appContext: Context, workerParams: WorkerParameters) : Worker
     override fun doWork(): Result {
         try{
             val repo = Repository.getInstance(applicationContext)
-            val CIDs = repo.getCIDs()
+            val CIDs = runBlocking { repo.getCIDs() }
 //            val filesHashMap = MeshDaemon.filesHashMap
             val filePaths = inputData.getStringArray("filePaths")
             filePaths?.forEach { filepath ->
@@ -29,7 +30,7 @@ class UploadWorker(appContext: Context, workerParams: WorkerParameters) : Worker
                     val extension = file.extension
                     val size = (file.length()/ 1024).toInt() //in kilobytes
                     val fileObj = ug.hix.hixnet2.database.File(CID = CID,path = filepath, size = size, cloudName = name, extension = extension, modified = Util.currentDateTime())
-                    repo.insertOrUpdateFile(fileObj)
+                    runBlocking { repo.insertOrUpdateFile(fileObj) }
 
 //                    val fileAttribute = mutableMapOf<String, MutableList<String>>()
 //                    fileAttribute["Name"] = mutableListOf(fileObj.cloudName)

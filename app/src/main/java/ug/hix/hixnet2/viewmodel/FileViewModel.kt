@@ -8,6 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import droidninja.filepicker.utils.ContentUriUtils
+import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.database.File
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.workers.UploadWorker
@@ -17,7 +18,7 @@ class FileViewModel : ViewModel() {
     fun getFiles(context: Context) : LiveData<List<File>> {
         val repository = Repository.getInstance(context)
 
-        return repository.getFilesLiveData()
+        return runBlocking { repository.getFilesLiveData() }
     }
 
     fun uploadFile(selectedPaths: ArrayList<Uri>,mContext: Context){

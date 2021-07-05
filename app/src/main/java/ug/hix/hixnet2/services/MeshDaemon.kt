@@ -50,7 +50,7 @@ class MeshDaemon : LifecycleService() {
     @ExperimentalCoroutinesApi
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        val deviceInfo = repo.getMyDeviceInfo()
+        val deviceInfo = runBlocking { repo.getMyDeviceInfo() }
         device = DeviceNode(
             meshID = deviceInfo.meshID,
             multicastAddress = deviceInfo.multicastAddress,
@@ -84,10 +84,10 @@ class MeshDaemon : LifecycleService() {
 //                }*
 //            }
 
-//            cardManager.isWiFiEnabled()
             launch {
                 connMonitor.start()
             }
+
             //coroutine for new device and cloud file listeners
             launch {
 
@@ -188,9 +188,7 @@ class MeshDaemon : LifecycleService() {
         isServiceRunning = false
         meshDaemon.cancelChildren()
 //        cardManager.stop()
-        runBlocking {
-            connMonitor.stop()
-        }
+        connMonitor.stop()
 //        thread {
 //            val netIds = repo.getAllWifiNetIds()
 //            netIds.forEach { netId ->

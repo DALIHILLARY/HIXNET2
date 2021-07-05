@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.R
 import ug.hix.hixnet2.database.DeviceNode
 import ug.hix.hixnet2.repository.Repository
@@ -19,7 +20,7 @@ class DeviceFragAdapter(private val mContext: Context) : ListAdapter<DeviceNode,
     DIFF_CALLBACK), Filterable{
     private val repo = Repository.getInstance(mContext)
     private var filteredDeviceList = listOf<DeviceNode>()
-    private val deviceList = repo.activeDevices()
+    private val deviceList = runBlocking { repo.activeDevices() }
     private val TAG = javaClass.simpleName
     
     inner class DeviceFragViewHolder(deviceView: View) : RecyclerView.ViewHolder(deviceView){

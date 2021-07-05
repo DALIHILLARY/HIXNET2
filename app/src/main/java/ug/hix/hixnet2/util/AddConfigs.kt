@@ -40,7 +40,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
 
                 mWifiConfig.SSID = "\"${device.SSID}\""
                 mWifiConfig.preSharedKey = "\"$password\""
-                mWifiConfig.priority = 100000
+                mWifiConfig.priority = 99999
                 val netId = mWifiManager.addNetwork(mWifiConfig)
                 mWifiManager.disconnect()
                 mWifiManager.enableNetwork(netId, false)
@@ -64,7 +64,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
             }else{
                 mWifiConfig.SSID = "\"${connectInfo[0]}\""
                 mWifiConfig.preSharedKey = "\"${connectInfo[2]}\""
-                mWifiConfig.priority = 100000
+                mWifiConfig.priority = 99999
                 val netId = mWifiManager.addNetwork(mWifiConfig)
                 mWifiManager.disconnect()
                 mWifiManager.enableNetwork(netId, false)
@@ -97,7 +97,7 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
             }else{
                 mWifiConfig.SSID = "\"${wifiConfig.ssid}\""
                 mWifiConfig.preSharedKey = "\"${wifiConfig.passPhrase}\""
-                mWifiConfig.priority = 100000
+                mWifiConfig.priority = 99999
                 val netId = mWifiManager.addNetwork(mWifiConfig)
                 mWifiManager.disconnect()
                 mWifiManager.enableNetwork(netId, false)
@@ -117,20 +117,20 @@ class AddConfigs(private val context: Context,private val repo: Repository) {
                 WifiNetworkSuggestion.Builder()
                     .setSsid(device.SSID!!)
                     .setWpa2Passphrase(it)
-                    .setPriority(100000)
+                    .setPriority(99999)
                     .build()
             }
         }else if(device != null){
             WifiNetworkSuggestion.Builder()
                 .setSsid(connectInfo[0])
                 .setWpa2Passphrase(connectInfo[2])
-                .setPriority(100000)
+                .setPriority(99999)
                 .build()
         }else{
             WifiNetworkSuggestion.Builder()
                 .setSsid(qrcodeScan?.ssid!!)
                 .setWpa2Passphrase(qrcodeScan.passPhrase)
-                .setPriority(100000)
+                .setPriority(99999)
                 .build()
         }
 

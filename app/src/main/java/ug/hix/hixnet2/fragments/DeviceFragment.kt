@@ -28,6 +28,7 @@ import com.google.zxing.integration.android.IntentIntegrator
 import kotlinx.android.synthetic.main.fragment_device.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.runBlocking
 import ug.hix.hixnet2.CaptureActivity
 import ug.hix.hixnet2.HomeActivity
 import ug.hix.hixnet2.R
@@ -84,7 +85,7 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
                 deviceAdapter.submitList(it)
             })
         device_details.setOnClickListener {
-            val connInfo = repo.getMyWifiConfig()
+            val connInfo = runBlocking { repo.getMyWifiConfig() }
             val json = Gson().toJson(connInfo, WifiConfig::class.java)
             Log.d(TAG,json)
             val bitmap = generateQRCode(json)
