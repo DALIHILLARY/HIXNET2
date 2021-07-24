@@ -98,6 +98,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 Log.e(TAG,"Vpn detected must be switched off")
             }
             if(hasInternet == true) {
+//                TODO("CHECK INTERNET WITH RUNTIME PING")
                 Log.d(TAG,"internet Connection detected")
             }
             if(hasP2p == true) {

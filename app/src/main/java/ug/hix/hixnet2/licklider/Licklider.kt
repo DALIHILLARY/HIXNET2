@@ -779,6 +779,7 @@ class Licklider(private val mContext: Context){
 
         @JvmStatic private var primaryBuffers = mutableListOf<Packet>()
         @JvmStatic  private var queueBuffer = mutableListOf<Packet>()
+        @JvmStatic
 
         fun start(context: Context) : Licklider {
             if(instance == null ){
