@@ -40,7 +40,8 @@ message ACK{
 
     string ackID = 1;
     repeated int32 expectedOffset = 2;
-    string fromMeshID = 3;
+    string toMeshID = 3;
+    string type = 4; // file or ""
 
 }
 

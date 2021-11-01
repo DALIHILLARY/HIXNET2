@@ -5,10 +5,13 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.os.Bundle
 import android.os.Handler
 import android.view.WindowManager
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.android.synthetic.main.activity_main.*
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.*
 import ug.hix.hixnet2.cyphers.Generator
+import ug.hix.hixnet2.viewmodel.MainActivityViewModel
 
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
@@ -21,17 +24,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
+        val viewModel : MainActivityViewModel by viewModels()
+        viewModel.finished.observe(this, Observer {
+            if(it) {
+                val intent = Intent(this,HomeActivity::class.java)
+                startActivity(intent)
+                finish()
+            }
+        })
+        viewModel.config(this.applicationContext)
 
-        runBlocking(Dispatchers.IO){
-            Generator.getDatabaseInstance(this@MainActivity)
-            Generator.loadKeys(this@MainActivity)
-        }
-
-        Handler().postDelayed({
-            val intent = Intent(this,HomeActivity::class.java)
-            startActivity(intent)
-            finish()
-        }, SPLASH_TIMEOUT.toLong())
+//        Handler().postDelayed({
+//            val intent = Intent(this,HomeActivity::class.java)
+//            startActivity(intent)
+//            finish()
+//        }, SPLASH_TIMEOUT.toLong())
 
     }
 

@@ -26,9 +26,9 @@ open class Generator {
 
     companion object : Generator() {
         private val TAG = "Generator"
-        private lateinit var pubKeyS : String
-        private lateinit var priKeyS : String
-        private lateinit var pid    : String
+        private var pubKeyS : String? = null
+        private var priKeyS : String? = null
+        private var pid    : String? = null
 
         private var hixNetInstance : HixNetDatabase? = null
 
@@ -42,7 +42,7 @@ open class Generator {
 
         
         private suspend fun createKeys(context: Context){
-            val deviceDb = hixNetInstance?.deviceNodeDao()
+            val deviceDb = hixNetInstance!!.deviceNodeDao()
 
             val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
@@ -61,19 +61,18 @@ open class Generator {
             val macAddress = getMacAddress()
             val multicastAddress =  getMultiAddress(context,null)
             //store keys in database
-            val device = DeviceNode(meshID = pid, mac = macAddress, privateKey = priKeyS, publicKey = pubKeyS, multicastAddress = multicastAddress, isMe = true)
-            deviceDb?.addDevice(device)
+            val device = DeviceNode(meshID = pid!!, mac = macAddress, privateKey = priKeyS!!, publicKey = pubKeyS!!, multicastAddress = multicastAddress, isMe = true)
+            deviceDb.addDevice(device)
 
         }
 
         fun getWifiPassphrase() : Pair<String, String> {
             val  alphaNumericString  = "QWERTYUIOPLKJHGFDSAZXCVBNMqwertyuioplkjhgfdsazxcvbnm1234567890"
-            lateinit var passKey : String
-            lateinit var hotspotName : String
 
-            passKey = alphaNumericString.toList().shuffled().joinToString(separator = "",limit = 8, truncated = "")
+            val passKey : String =
+                alphaNumericString.toList().shuffled().joinToString(separator = "",limit = 8, truncated = "")
 
-            hotspotName = "HixNet" + passKey.reversed()
+            val hotspotName = "HixNet" + passKey.reversed()
 
             return Pair(hotspotName,passKey)
         }
@@ -86,10 +85,10 @@ open class Generator {
 
         fun getPID() : String{
             if(pid == null) {
-                val deviceDb = hixNetInstance?.deviceNodeDao()
-                pid   = deviceDb?.getMyPid().toString()
+                val deviceDb = hixNetInstance!!.deviceNodeDao()
+                pid   = deviceDb.getMyPid().toString()
             }
-            return pid
+            return pid as String
         }
 
         suspend fun getMultiAddress(context: Context, scanAddress: String?) : String {
@@ -158,14 +157,13 @@ open class Generator {
         }
 
         suspend fun loadKeys(context: Context){
-            val deviceDb = hixNetInstance?.deviceNodeDao()
-            priKeyS = deviceDb?.getMyPrivateKey().toString()
-            pubKeyS = deviceDb?.getMyPublicKey().toString()
-            pid     = deviceDb?.getMyPid().toString()
-
+            val deviceDb = hixNetInstance!!.deviceNodeDao()
+            priKeyS = deviceDb.getMyPrivateKey()
+            pubKeyS = deviceDb.getMyPublicKey()
+            pid     = deviceDb.getMyPid()
             Log.d(TAG," $pid,\n $pubKeyS")
 
-            if(pid == "null"){
+            if(pid == null){
                 createKeys(context)
             }
         }

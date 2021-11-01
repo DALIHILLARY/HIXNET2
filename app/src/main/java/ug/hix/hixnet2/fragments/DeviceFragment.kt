@@ -1,5 +1,6 @@
 package ug.hix.hixnet2.fragments
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
@@ -14,18 +15,20 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import com.google.zxing.integration.android.IntentIntegrator
-import kotlinx.android.synthetic.main.fragment_device.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
@@ -50,7 +53,6 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
     val TAG = javaClass.simpleName
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        retainInstance = true
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
@@ -59,8 +61,14 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
         return inflater.inflate(R.layout.fragment_device, container, false)
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        val devicesRecycleView : RecyclerView = view.findViewById(R.id.devicesRecycleView)
+        val device_details : ImageView = view.findViewById(R.id.device_details)
+        val devicesSideBar : FrameLayout = view.findViewById(R.id.devicesSideBar)
+        val device_scan : ImageView = view.findViewById(R.id.device_scan)
+        val device_search : SearchView = view.findViewById(R.id.device_search)
 
         devicesRecycleView.setOnTouchListener(object : OnSwipeTouchListener(activity){
             override fun onSwipeLeft() {

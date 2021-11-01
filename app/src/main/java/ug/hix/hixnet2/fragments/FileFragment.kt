@@ -1,5 +1,6 @@
 package ug.hix.hixnet2.fragments
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -9,13 +10,15 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import ug.hix.hixnet2.R
-import kotlinx.android.synthetic.main.fragment_files.*
 import droidninja.filepicker.*
 
 import ug.hix.hixnet2.adapter.FileFragAdapter
@@ -30,7 +33,6 @@ class FileFragment(val mContext: Context) : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        retainInstance = true
     }
 
     override fun onCreateView(
@@ -42,8 +44,14 @@ class FileFragment(val mContext: Context) : Fragment() {
 
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        val filesRecycleView : RecyclerView = view.findViewById(R.id.filesRecycleView)
+        val filesSideBar : FrameLayout = view.findViewById(R.id.filesSideBar)
+        val uploadDoc: ImageView = view.findViewById(R.id.uploadDoc)
+        val fileSearch: SearchView = view.findViewById(R.id.file_search)
+        val uploadMedia : ImageView = view.findViewById(R.id.uploadMedia)
 
         filesRecycleView.setOnTouchListener(object : OnSwipeTouchListener(activity){
             override fun onSwipeLeft() {
@@ -82,7 +90,7 @@ class FileFragment(val mContext: Context) : Fragment() {
                 .showGifs(true)
                 .pickPhoto(this)
         }
-        file_search.setOnQueryTextListener( object: SearchView.OnQueryTextListener{
+        fileSearch.setOnQueryTextListener( object: SearchView.OnQueryTextListener{
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
             }

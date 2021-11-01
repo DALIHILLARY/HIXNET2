@@ -29,7 +29,7 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
             val file = CID?.let { repo.getFileByCid(it) }!!
             setForeground(createForegroundInfo())
             if(expectedOffsets == null){
-                Licklider(mContext).loadData(file, toMeshId!!)
+                Licklider(mContext,repo).loadData(file, toMeshId!!)
             }else{
                 val storage = Storage(mContext)
                 val cacheDir = mContext.externalCacheDir?.absolutePath
@@ -41,7 +41,7 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
                             }.toInt()
                     }
                 storage.deleteFile("$cacheDir/Acks/${expectedOffsets}.ch")
-                Licklider(mContext).loadData(file,offsets,toMeshId!!)
+                Licklider(mContext,repo).loadData(file,offsets,toMeshId!!)
             }
 
 //            Licklider(mContext).loadData(file,"dguufggfufvueffdgerge4834yrtr")

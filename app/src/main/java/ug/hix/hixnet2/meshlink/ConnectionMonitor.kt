@@ -1,18 +1,21 @@
-package ug.hix.hixnet2.meshlink
+ package ug.hix.hixnet2.meshlink
 
 import android.annotation.SuppressLint
-import android.app.Dialog
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.NetworkCapabilities.*
-import android.net.NetworkInfo
 import android.net.NetworkRequest
 import android.net.wifi.ScanResult
+import android.net.wifi.WifiConfiguration
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
+import android.net.wifi.WifiManager.EXTRA_WIFI_STATE
 import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
@@ -26,31 +29,27 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat.startActivity
-import com.bumptech.glide.load.model.stream.BaseGlideUrlLoader
-import com.knexis.hotspot.Hotspot
 import kotlinx.coroutines.*
-import kotlinx.coroutines.NonCancellable.start
-import kotlinx.coroutines.channels.BroadcastChannel
-import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import ug.hix.hixnet2.cyphers.Generator
 import ug.hix.hixnet2.database.WifiConfig
 import ug.hix.hixnet2.licklider.Licklider
 import ug.hix.hixnet2.models.*
 import ug.hix.hixnet2.repository.Repository
-import ug.hix.hixnet2.services.MeshDaemon
 import ug.hix.hixnet2.util.AddConfigs
-import java.lang.Thread.sleep
-import kotlin.coroutines.CoroutineContext
 
-@ExperimentalCoroutinesApi
-class ConnectionMonitor(private val mContext: Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel)  : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener{
+
+ class ConnectionMonitor(private val mContext: Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel, private var licklider : Licklider, private val repo: Repository)  : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener{
     private val TAG = javaClass.simpleName
     private val cm = mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-    private val hotspot = Hotspot(mContext.applicationContext)
-    private val repo = Repository.getInstance(mContext)
     private val addConfig = AddConfigs(mContext,repo)
+     private val job = Job()
+     private val scopeDefault = CoroutineScope(job + newSingleThreadContext("ConnThread"))
+     private val scopeIO = CoroutineScope(job + Dispatchers.IO)
+    private val device = runBlocking {repo.getMyDeviceInfo()}
     private  var foundDevices = mutableMapOf<String,String>()
     private val serviceName =  "kil3rH1xNet2"
     private var isWifiRegistered = false
@@ -62,26 +61,33 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
     private var LAST_DISCON_TIMESYNC = 0L
     private val SYNCTIME = 500L
 
-    private val isScanning = BroadcastChannel<Pair<Boolean,Long>>(1)
-    private val serviceRegister = BroadcastChannel<Boolean>(1)
+    private val isScanning = MutableStateFlow(Pair(false,0L))
+    private val serviceRegister = MutableStateFlow(false)
+    private val wifiEnabled = MutableStateFlow(false)
 
     private var ssid : String = ""
     private var bssid : String = ""
     private var passPhrase : String = ""
+     private var conSSID : String = ""
 
     private lateinit var startJob : Job
+
+
+
     private lateinit var wifiScanResults : List<ScanResult>
     private lateinit var filteredResults : List<ScanResult>
     private val intentFilter = IntentFilter().apply {
         addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
-        addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
+        addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
         addAction(WifiManager.RSSI_CHANGED_ACTION)
         addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION)
 
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     private val networkCallback = @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     object: ConnectivityManager.NetworkCallback() {
+        @SuppressLint("MissingPermission")
         override fun onAvailable(network: Network) {
             super.onAvailable(network)
             val networkCapabilities = cm.getNetworkCapabilities(network)
@@ -90,19 +96,31 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             val isWifi = networkCapabilities?.hasTransport(TRANSPORT_WIFI)
             val isVpn = networkCapabilities?.hasTransport(TRANSPORT_VPN)
             val isCellular = networkCapabilities?.hasTransport(TRANSPORT_CELLULAR)
-            if(isWifi == true) {
+            if (isWifi == true) {
+                if(Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) conSSID = mWifiManager.connectionInfo.ssid
                 sendHello()
-                Log.d(TAG,"connected to wifi network")
+                Log.d(TAG, "connected to wifi network")
             }
-            if(isVpn == true) {
-                Log.e(TAG,"Vpn detected must be switched off")
+            if (isVpn == true) {
+                Log.e(TAG, "Vpn detected must be switched off")
             }
-            if(hasInternet == true) {
+            if (hasInternet == true) {
 //                TODO("CHECK INTERNET WITH RUNTIME PING")
-                Log.d(TAG,"internet Connection detected")
+                Log.d(TAG, "internet Connection detected")
             }
-            if(hasP2p == true) {
-                Log.d(TAG,"P2P support")
+            if (hasP2p == true) {
+                Log.d(TAG, "P2P support")
+            }
+
+        }
+//        to be used by android 12 to replace the getConnectionInfo since no support for peer-to-peer
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            super.onCapabilitiesChanged(network, networkCapabilities)
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val transportInfo = networkCapabilities.transportInfo
+                if(transportInfo !is WifiInfo)  return
+                val wifiInfo : WifiInfo = transportInfo
+                conSSID = wifiInfo.ssid
             }
 
         }
@@ -110,8 +128,8 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         override fun onLost(network: Network) {
             super.onLost(network)
         }
-
     }
+    @OptIn(DelicateCoroutinesApi::class)
     private val meshReceiver = object: BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
             when(intent.action) {
@@ -145,26 +163,15 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     if(wifiScanResults.isNotEmpty()) filterResults()
 
                 }
-                WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
-                    if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                        val info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO) as NetworkInfo
-                        if (info.isConnected) {
-                            if(System.currentTimeMillis() - LAST_CONNECT_TIMESYNC >= SYNCTIME){
-                                LAST_CONNECT_TIMESYNC = System.currentTimeMillis()
-                                sendHello()
-                                Log.d(TAG, "CONNECTED to wifi")
-                            }
-
-
-                        } else if(info.detailedState == NetworkInfo.DetailedState.DISCONNECTED) {
-                            if(System.currentTimeMillis() - LAST_DISCON_TIMESYNC >= SYNCTIME){
-                                LAST_DISCON_TIMESYNC = System.currentTimeMillis()
-
-                                mWifiManager.reconnect() //try reconnecting to wifi
-                                Log.d(TAG,"Disconnected From WIFI")
-
-                            }
-
+                WifiManager.WIFI_STATE_CHANGED_ACTION -> {
+//                    check if wifi is on or off
+                    when(intent.getIntExtra(EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_DISABLED)) {
+                        WifiManager.WIFI_STATE_DISABLED -> {
+                            Log.d(TAG,"Wifi is disconnected")
+                        }
+                        WifiManager.WIFI_STATE_ENABLED -> {
+                            Log.d(TAG,"Wifi is enabled")
+                            wifiEnabled.value = true
                         }
                     }
                 }
@@ -173,80 +180,118 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
     }
     private fun sendHello() {
-        val licklider = Licklider.start(mContext)
-        //determine wifi type direct or normal fro ssid
-        val conSSID = mWifiManager.connectionInfo.ssid
+        //determine wifi type direct or normal from ssid
+
         //TODO("CHECK Both ssid and bssid, possible ssid duplicate")
-        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"KALI",true)) {
-            val connAddress = runNonBlocking { repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress }
+        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET")) {
+            val connAddress = runBlocking { repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress }
             connAddress?.let{
                 Log.d(TAG,"connected to host")
-                GlobalScope.launch {
+                scopeDefault.launch {
                     //send all tables to the master device
                     val fileSeeders = repo.getAllFileSeeders()
                     val fileNames = repo.getAllFileNames()
                     val names = repo.getAllNames()
                     val devices = repo.getAllDevices()
-//                    val bonjour = Command(type = "HELLO",from = MeshDaemon.device.multicastAddress)
-                    val bonjour = "HELLO@${MeshDaemon.device.multicastAddress}"
+//                    val bonjour = Command(type = "HELLO",from = device.multicastAddress)
+                    val bonjour = "HELLO@${device.multicastAddress}"
                     licklider.loadData(message = bonjour,toMeshId = connAddress)
                     delay(500L)
                     try{
-                        devices.forEach {
-                            it?.let {
-                                Log.e(TAG,"sending hello devices to : $connAddress")
-                                val deviceSend = DeviceNode(
-                                    fromMeshID = MeshDaemon.device.meshID,
-                                    multicastAddress = if (it.device.meshID == MeshDaemon.device.meshID) MeshDaemon.device.multicastAddress else {MeshDaemon.device.meshID},
-                                    connAddress = it.wifiConfig.connAddress,
-                                    meshID = it.device.meshID,
-                                    Hops = it.device.hops,
-                                    macAddress = it.wifiConfig.mac,
-                                    publicKey = it.device.publicKey,
-                                    hasInternetWifi = it.device.hasInternetWifi,
-                                    wifi = it.wifiConfig.ssid,
-                                    passPhrase = it.wifiConfig.passPhrase,
-                                    version = it.device.version,
-                                    status = it.device.status,
-                                    modified = it.device.modified,
-                                    type = "meshHello"
-                                )
-                                licklider.loadData(message = deviceSend, toMeshId = connAddress)
+                        if(devices.isNotEmpty()) {
+                            val sendDevices = devices.mapNotNull {
+                                it?.let {
+                                    DeviceNode(
+                                        fromMeshID = device.meshID,
+                                        multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {device.meshID},
+                                        connAddress = it.wifiConfig.connAddress,
+                                        meshID = it.device.meshID,
+                                        Hops = it.device.hops,
+                                        macAddress = it.wifiConfig.mac,
+                                        publicKey = it.device.publicKey,
+                                        hasInternetWifi = it.device.hasInternetWifi,
+                                        wifi = it.wifiConfig.ssid,
+                                        passPhrase = it.wifiConfig.passPhrase,
+                                        version = it.device.version,
+                                        status = it.device.status,
+                                        modified = it.device.modified,
+                                        type = "meshHello"
+                                    )
+                                }
                             }
+                            licklider.loadData(message = sendDevices, toMeshId = connAddress)
+
                         }
+//                        devices.forEach {
+//                            it?.let {
+//                                Log.e(TAG,"sending hello devices to : $connAddress")
+//                                val deviceSend = DeviceNode(
+//                                    fromMeshID = device.meshID,
+//                                    multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {device.meshID},
+//                                    connAddress = it.wifiConfig.connAddress,
+//                                    meshID = it.device.meshID,
+//                                    Hops = it.device.hops,
+//                                    macAddress = it.wifiConfig.mac,
+//                                    publicKey = it.device.publicKey,
+//                                    hasInternetWifi = it.device.hasInternetWifi,
+//                                    wifi = it.wifiConfig.ssid,
+//                                    passPhrase = it.wifiConfig.passPhrase,
+//                                    version = it.device.version,
+//                                    status = it.device.status,
+//                                    modified = it.device.modified,
+//                                    type = "meshHello"
+//                                )
+//                                licklider.loadData(message = deviceSend, toMeshId = connAddress)
+//                            }
+//                        }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello devices")
                         e.printStackTrace()
                     }
                     Log.e(TAG,"Sending file seeders")
                     try{
-                        fileSeeders.forEach {
-                            Log.e(TAG,"sending hello fileSeeders to : $connAddress")
-                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,MeshDaemon.device.meshID,type = "fileSeederHello")
-                            licklider.loadData(pFileSeeder, toMeshId = connAddress)
+                        if(fileSeeders.isNotEmpty()) {
+                            val pFileSeeders = fileSeeders.map{ PFileSeeder(it.CID,it.meshID,it.status,device.meshID,type = "fileSeederHello")}
+                            licklider.loadData(pFileSeeders, toMeshId = connAddress)
+
                         }
+//                        fileSeeders.forEach {
+//                            Log.e(TAG,"sending hello fileSeeders to : $connAddress")
+//                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,device.meshID,type = "fileSeederHello")
+//                            licklider.loadData(pFileSeeder, toMeshId = connAddress)
+//                        }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello file seeder")
                         e.printStackTrace()
                     }
                     Log.e(TAG,"SENDING FILE NAMES")
                     try{
-                        fileNames.forEach {
-                            Log.e(TAG,"sending hello filenames to : $connAddress")
-                            val pFileName = PFileName(it.CID,it.name_slub,it.status,MeshDaemon.device.meshID,it.modified,"fileNameHello",it.file_size)
-                            licklider.loadData(pFileName, toMeshId = connAddress)
+                        if(fileNames.isNotEmpty()) {
+                            val pFileNames = fileNames.map{ PFileName(it.CID,it.name_slub,it.status,device.meshID,it.modified,"fileNameHello",it.file_size)}
+                            licklider.loadData(pFileNames, toMeshId = connAddress)
+
                         }
+//                        fileNames.forEach {
+//                            Log.e(TAG,"sending hello filenames to : $connAddress")
+//                            val pFileName = PFileName(it.CID,it.name_slub,it.status,device.meshID,it.modified,"fileNameHello",it.file_size)
+//                            licklider.loadData(pFileName, toMeshId = connAddress)
+//                        }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello filename ")
                         e.printStackTrace()
                     }
                     Log.e(TAG,"SENDING NAMES")
                     try{
-                        names.forEach {
-                            Log.e(TAG,"sending hello names to : $connAddress")
-                            val pName = PName(it.name, it.name_slub, MeshDaemon.device.meshID,it.status,type = "nameHello")
-                            licklider.loadData(pName, toMeshId = connAddress)
+                        if(names.isNotEmpty()) {
+                            val pNames = names.map { PName(it.name, it.name_slub, device.meshID,it.status,type = "nameHello") }
+                            licklider.loadData(pNames, toMeshId = connAddress)
+
                         }
+//                        names.forEach {
+//                            Log.e(TAG,"sending hello names to : $connAddress")
+//                            val pName = PName(it.name, it.name_slub, device.meshID,it.status,type = "nameHello")
+//                            licklider.loadData(pName, toMeshId = connAddress)
+//                        }
                     }catch (e: Throwable) {
                         Log.e(TAG, "Something happened to the hello name")
                         e.printStackTrace()
@@ -257,6 +302,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 
         }
     }
+    @SuppressLint("MissingPermission")
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun registerNetworkCallback() {
         val networkRequest = NetworkRequest.Builder()
@@ -277,7 +323,14 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         mContext.unregisterReceiver(meshReceiver)
     }
     fun wifiScan() {
-        mWifiManager.startScan()
+        Log.d(TAG,"Performing wifi scan")
+        while(true) {
+            if(mWifiManager.startScan()) {
+                Log.d(TAG,"wifi scan successful")
+                break
+            }else { Log.e(TAG,"Wifi scan failed") }
+        }
+
     }
     private fun enableWiFi() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q){
@@ -285,27 +338,30 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         }
         else{
             Handler(Looper.getMainLooper()).post{
-                  val dialog = Dialog(mContext)
-                  dialog.setTitle("Please switch on wifi")
-                  dialog.setCanceledOnTouchOutside(true)
-                  dialog.show()
-                  sleep(4000)
-                  if(dialog.isShowing){
-                      dialog.dismiss()
-                      val panelIntent = Intent(Settings.Panel.ACTION_WIFI)
-                      startActivity(mContext,panelIntent,null)
-                  }
+                val builder = AlertDialog.Builder(mContext)
+                builder.setMessage("Please Turn On your wifi")
+                    .setCancelable(false)
+                    .setPositiveButton("ENABLE"
+                    ) { _, _ ->
+                        run {
+                            val panelIntent = Intent(Settings.Panel.ACTION_WIFI)
+                            startActivity(mContext,panelIntent,null)
+                        }
+                    }
+//            .setNegativeButton("No") { dialog, _ -> dialog.cancel() }
+                val alert: AlertDialog = builder.create()
+                alert.show()
           }
 
         }
         Log.d(TAG,"Starting wifi card")
     }
 
-
     private suspend fun isWiFiEnabled(){
         withContext(Dispatchers.IO) {
             if (hotspotIsEnabled()) {
-                Hotspot(mContext).stop()
+                val method= mWifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.javaPrimitiveType)
+                method.invoke(mWifiManager, null, false)
             }
             if(!mWifiManager.isWifiEnabled){
                 enableWiFi()
@@ -323,15 +379,25 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         Log.d(TAG,"stopping wifi")
     }
     private fun isWifiActive(): Boolean {
-        val nwkInterface = cm.activeNetworkInfo
-        return nwkInterface != null && nwkInterface.type == ConnectivityManager.TYPE_WIFI
+        return if (mWifiManager.isWifiEnabled) { // Wi-Fi adapter is ON
+            val wifiInfo: WifiInfo = mWifiManager.connectionInfo
+            wifiInfo.networkId != -1
+            // Connected to access point
+        } else {
+            false // Wi-Fi adapter is OFF
+        }
     }
 
     private fun hotspotIsEnabled(): Boolean {
-        return Hotspot(mContext).isON
+        try{
+            val method = mWifiManager.javaClass.getMethod("getWifiApState")
+            method.isAccessible = true
+            return method.invoke(mWifiManager) as Boolean
+        }catch (ignore : Throwable) {}
+        return false
     }
     private fun filterResults(){
-        filteredResults = wifiScanResults.filter { it.SSID.startsWith("DIRECT") or it.SSID.startsWith("HixNet") or it.SSID.startsWith("KALI")}
+        filteredResults = wifiScanResults.filter { it.SSID.startsWith("DIRECT") or it.SSID.startsWith("HixNet")}
         if(filteredResults.isNotEmpty()){
             Log.d(TAG,"filtered: $filteredResults")
             //there are Mesh nodes in surrounding thus go into hotspot mode
@@ -341,7 +407,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             val (nonP2pHotspots,p2pHotspots) = filteredResults.partition{it.SSID.startsWith("HixNet")}
             if(nonP2pHotspots.isNotEmpty()){
                 Log.d(TAG,"NonP2p: $nonP2pHotspots")
-                GlobalScope.launch{
+                scopeDefault.launch{
                     val macList = repo.getAllMac()
                     var firstDevice = false
                     nonP2pHotspots.forEach{scanResult ->
@@ -361,18 +427,14 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 }
             }
             if(p2pHotspots.isNotEmpty()){
-                CoroutineScope(Dispatchers.Default).launch {
-                    coroutineScope {
-                        isScanning.send(Pair(false,0L))
-                    }
+                scopeDefault.launch {
+                    isScanning.value = Pair(false,0L)
                 }
-                val wifiConfigs = runNonBlocking { repo.getAllWifiConfig().map{ "${it.ssid}::::${it.mac}" } }
+                val wifiConfigs = runBlocking { repo.getAllWifiConfig().map{ "${it.ssid}::::${it.mac}" } }
                 for(device in p2pHotspots.map{"${it.SSID}::::${it.BSSID}"}){
                     if(device !in wifiConfigs){
-                        CoroutineScope(Dispatchers.Default).launch {
-                            coroutineScope {
-                                serviceRegister.send(true)
-                            }
+                        scopeDefault.launch {
+                            serviceRegister.value =true
                         }
                         break
                     }
@@ -388,10 +450,21 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         }else{
             CoroutineScope(Dispatchers.Default).launch{
                 coroutineScope {
-                    isScanning.send(Pair(true,15000L))
+                    isScanning.value = Pair(true,15000L)
                 }
             }
         }
+    }
+    private fun createHotspot(ssid : String, password : String) {
+        val netConfig = WifiConfiguration()
+        netConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN)
+        netConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN)
+        netConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA)
+        netConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
+        netConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP)
+        netConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP)
+        netConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP)
+        netConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP)
     }
     @SuppressLint("MissingPermission")
     private fun serviceDiscovery(terminate : Boolean = false){
@@ -420,8 +493,12 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
 //                                            Toast.makeText(mContext,"P2p not supported",Toast.LENGTH_SHORT).show()
                                             Log.e(TAG, "P2P isn't supported on this device.")
                                             val (hotspotName,keyPass) = Generator.getWifiPassphrase()
-                                            hotspot.start(hotspotName,keyPass)
+//                                            TODO("CREATE HOTSPOT HERE")
+//                                            hotspot.start(hotspotName,keyPass)
                                             //TODO("GET THE HOTSPOT FEATURE WORKING")
+                                            Handler(Looper.getMainLooper()).post {
+                                                Toast.makeText(mContext,"Phone doesn't support p2p", Toast.LENGTH_LONG).show()
+                                            }
                                         }
                                         WifiP2pManager.NO_SERVICE_REQUESTS -> {
                                             Log.d(TAG,"No service requests detected")
@@ -463,7 +540,7 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
             }
 
             //self terminate responders on time expire
-            GlobalScope.launch {
+            scopeDefault.launch {
                 delay(1000)
                 deactivateService()  //unregister the service
                 serviceKiller = true //terminate service discover
@@ -486,8 +563,8 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                     }
                 }
                 foundDevices.clear()
-                isScanning.send(Pair(true,15000L))
-                serviceRegister.send(false)
+                isScanning.value = Pair(true,15000L * 60)
+                serviceRegister.value = false
 
             }
         }
@@ -579,9 +656,11 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         removeGroup()
         manager.createGroup(channel,object : WifiP2pManager.ActionListener{
             override fun onSuccess() {
-                sleep(1000)
-                manager.requestGroupInfo(channel,this@ConnectionMonitor)
-                Log.d(TAG,"Group started")
+                scopeDefault.launch {
+                    delay(1000L)
+                    manager.requestGroupInfo(channel,this@ConnectionMonitor)
+                    Log.d(TAG,"Group started")
+                }
 
             }
             override fun onFailure(reason: Int) {
@@ -607,27 +686,19 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 unregisterWifiBroadcast()
                 removeGroup()
                 serviceKiller = true
-                isScanning.send(Pair(false,0L))
-                serviceRegister.send(false)
+                isScanning.value = Pair(false,0L)
+                serviceRegister.value = false
                 if (startJob.isActive) startJob.cancel()
             }
         }
-
     }
 
     override fun onConnectionInfoAvailable(info: WifiP2pInfo?) {
 //        TODO("Not yet implemented")
     }
 
-    @FlowPreview
     suspend fun start() {
         isWiFiEnabled()
-        while(true){
-            Log.d(TAG,"ISmASTER: $isMaster")
-            if(isMaster) break
-            createGroup()
-            delay(2000L)
-        }
         //register broadcast if not registered
         if(!isWifiRegistered){
             registerWifiBroadcast()
@@ -635,86 +706,103 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
                 registerNetworkCallback()
             }
         }
-        //set up service listeners
-        if(!setResponders){
-            setResponders = true
-            setupDnsResponders()
-            delay(1000L)
-
-        }
-        var wifiScanJob : Job? = null
-        var serviceRegisterJob: Job? = null
-        startJob = GlobalScope.launch {
-            launch{
-                isScanning.asFlow().collect{
-                    Log.d(TAG,"WIFI scan channel command: ${it.first}  time: ${it.second}")
-                    wifiScanJob?.let { job ->
-                        if(job.isActive) job.cancel()
-                    }
-                    if(it.first)
-                        wifiScanJob = GlobalScope.launch {
-                            while(isActive){
-                                wifiScan()
-                                delay(it.second)
-                            }
-                        }
-                }
+        startJob = scopeDefault.launch(Dispatchers.IO){
+            while(isActive){
+                Log.d(TAG,"ISmASTER: $isMaster")
+                if(isMaster) break
+                createGroup()
+                delay(2000L)
             }
-            delay(1000L) //wait for scan channel to open
-            isScanning.send(Pair(true,4000L))
-            launch{
-                serviceRegister.asFlow().collect {
-                    Log.d(TAG,"Service register channel command: $it")
-                    serviceRegisterJob?.let{ job ->
-                        if(job.isActive) job.cancel()
-                    }
-                    if(it)
-                        serviceRegisterJob = GlobalScope.launch {
-                            try{
-                                withTimeout( 2*60000L){
-                                    registerService()
+            //set up service listeners
+            if(!setResponders){
+                setResponders = true
+                setupDnsResponders()
+                delay(1000L)
+
+            }
+            var wifiScanJob : Job? = null
+            var serviceRegisterJob: Job? = null
+            wifiEnabled.asStateFlow().collect{status ->
+                if(status){
+                    //                            TODO("fix the peer discovery algorithm")
+
+                    launch{
+                        isScanning.asStateFlow().collect{
+                            Log.d(TAG,"WIFI scan channel command: ${it.first}  time: ${it.second}")
+                            wifiScanJob?.let { job ->
+                                if(job.isActive) job.cancel()
+                            }
+                            if(it.first)
+                                wifiScanJob = scopeDefault.launch {
+                                    while(isActive){
+                                        wifiScan()
+                                        delay(it.second)
+                                    }
                                 }
-                            }catch(e: TimeoutCancellationException){
-                                Log.d(TAG,"register && discover service timeout")
-                                serviceKiller = true
-                                deactivateService()
-                                isScanning.send(Pair(true,15000L))
-
-                            }
-
                         }
+                    }
+                    delay(1000L) //wait for scan channel to open
+                    isScanning.value = Pair(true, 60 * 4000L) //scan after 4min
+                    launch{
+                        serviceRegister.asStateFlow().collect {
+                            Log.d(TAG,"Service register channel command: $it")
+                            serviceRegisterJob?.let{ job ->
+                                if(job.isActive) job.cancel()
+                            }
+                            if(it)
+                                serviceRegisterJob = scopeDefault.launch {
+                                    try{
+                                        withTimeout( 2* 60* 1000L){
+                                            registerService()
+                                        }
+                                    }catch(e: TimeoutCancellationException){
+                                        Log.d(TAG,"register && discover service timeout")
+                                        serviceKiller = true
+                                        deactivateService()
+                                        isScanning.value = Pair(true,15000L * 60) //scan after 15min
+
+                                    }
+
+                                }
+                        }
+                    }
                 }
             }
+
         }
 
     }
 
     override fun onGroupInfoAvailable(group: WifiP2pGroup?) {
-        runNonBlocking {
-            if(group != null){
-                if(group.isGroupOwner){
-                    isMaster = true
-                    ssid = group.networkName
-                    passPhrase = group.passphrase
-                    bssid   = Repository.getInstance(mContext).getMyDeviceInfo().mac
-
-                    repo.addWifiConfig(WifiConfig(MeshDaemon.device.meshID,ssid = ssid,mac = bssid,passPhrase = passPhrase,connAddress = MeshDaemon.device.multicastAddress))
-                    val multicastAddress = repo.getMyDeviceInfo().multicastAddress
-                    val licklider = Licklider.start(mContext)
-                    Licklider.receiverJob = licklider.receiver(multicastAddress)
+        if(group != null){
+            if(group.isGroupOwner){
+                isMaster = true
+                ssid = group.networkName
+                passPhrase = group.passphrase
+                bssid   = device.mac
+                val multicastAddress = runBlocking{
+                    repo.addWifiConfig(WifiConfig(device.meshID,ssid = ssid,mac = bssid,passPhrase = passPhrase,connAddress = device.multicastAddress))
+                    repo.getMyDeviceInfo().multicastAddress
                 }
-                Log.d("onCreateListener","group available")
+                if(Licklider.receiverJob != null && Licklider.receiverJob!!.isActive) {
+                     Licklider.receiverJob!!.cancel()
 
-            }else{
-                Log.d("onCreateListener","No group available")
+                }
+                licklider = Licklider(mContext,repo)
+                Licklider.receiverJob = licklider.receiver(multicastAddress)
             }
+            Log.d("onCreateListener","group available")
+
+        }else{
+            Log.d("onCreateListener","No group available")
         }
+
     }
     @Suppress("UNCHECKED_CAST")
     private fun <T> runNonBlocking(block: suspend CoroutineScope.() -> T) : T {
         var finished = false
         var result : T? = null
-        GlobalScope.launch {
+        val job = scopeDefault.launch {
             result = block()
             finished = true
         }
@@ -726,9 +814,9 @@ class ConnectionMonitor(private val mContext: Context, private val manager: Wifi
         @SuppressLint("StaticFieldLeak")
         private var instance: ConnectionMonitor? = null
         private var channel: WifiP2pManager.Channel? = null
-        fun getInstance(context : Context, manager: WifiP2pManager, channel: WifiP2pManager.Channel) : ConnectionMonitor {
+        fun getInstance(context : Context, manager : WifiP2pManager, channel : WifiP2pManager.Channel, licklider : Licklider, repo : Repository) : ConnectionMonitor {
             if(instance ==  null) {
-                instance = ConnectionMonitor(context,manager,channel)
+                instance = ConnectionMonitor(context,manager,channel,licklider,repo)
             }
             return instance as ConnectionMonitor
         }

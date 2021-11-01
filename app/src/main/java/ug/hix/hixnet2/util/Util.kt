@@ -8,7 +8,7 @@ class Util {
 
     companion object {
         fun slub(rawString: String) : String {
-            return rawString.replace(" ", "-").toLowerCase(Locale.ROOT)
+            return rawString.replace(" ", "-").lowercase(Locale.ROOT)
         }
         @SuppressLint("SimpleDateFormat")
         fun currentDateTime(): String{

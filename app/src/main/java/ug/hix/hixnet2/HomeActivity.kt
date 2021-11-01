@@ -6,16 +6,19 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View.GONE
 import android.view.View.VISIBLE
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.material.bottomappbar.BottomAppBar
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.services.MeshDaemon
 
-import kotlinx.android.synthetic.main.activity_home.*
 import kotlinx.coroutines.*
 import ug.hix.hixnet2.fragments.CloudFragment
 import ug.hix.hixnet2.fragments.DeviceFragment
@@ -38,8 +41,11 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             setContentView(R.layout.activity_home)
-
             viewModel = ViewModelProvider(this).get(HomeViewModel::class.java)
+
+            val gray_out_home : FrameLayout = findViewById(R.id.gray_out_home)
+            val fabStart : FloatingActionButton = findViewById(R.id.fabStart)
+            val bottomAppBar : BottomAppBar = findViewById(R.id.bottomAppBar)
 
             //Check for permissions
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
@@ -56,23 +62,23 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
             }
             if(MeshDaemon.isServiceRunning){
                 gray_out_home.visibility = GONE
-                fabStart?.setImageResource(R.drawable.ic_stop)
+                fabStart.setImageResource(R.drawable.ic_stop)
 
             }else{
                 gray_out_home.visibility = VISIBLE
-                fabStart?.setImageResource(R.drawable.ic_start)
+                fabStart.setImageResource(R.drawable.ic_start)
             }
-            fabStart?.setOnClickListener {
+            fabStart.setOnClickListener {
                 if(System.currentTimeMillis() - fabLastClick >= 2000L){
                     fabLastClick = System.currentTimeMillis()
                     if(viewModel.isMyServiceRunning(this,MeshDaemon::class.java)){
                         MeshDaemon.stopService(this)
-                        fabStart?.setImageResource(R.drawable.ic_start)
+                        fabStart.setImageResource(R.drawable.ic_start)
                         gray_out_home.visibility = VISIBLE
 
                     }else{
-                       MeshDaemon.startService(this)
-                        fabStart?.setImageResource(R.drawable.ic_stop)
+                        MeshDaemon.startService(this)
+                        fabStart.setImageResource(R.drawable.ic_stop)
                         gray_out_home.visibility = GONE
                     }
 
@@ -81,7 +87,7 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
 
             }
 
-            bottomAppBar?.setOnMenuItemClickListener {
+            bottomAppBar.setOnMenuItemClickListener {
                 when(it.itemId){
                     R.id.menuFiles -> {
                         loadFragment(filesFragment)

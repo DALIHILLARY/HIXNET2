@@ -10,10 +10,9 @@ import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import ug.hix.hixnet2.R
-
-import kotlinx.android.synthetic.main.fragment_cloud.*
 import ug.hix.hixnet2.adapter.CloudFragAdapter
 import ug.hix.hixnet2.database.FileName
 import ug.hix.hixnet2.viewmodel.CloudFileViewModel
@@ -23,7 +22,6 @@ class CloudFragment(private val mContext: Context) : Fragment() {
     lateinit var cloudFileViewModel: CloudFileViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        retainInstance = true
     }
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -33,9 +31,12 @@ class CloudFragment(private val mContext: Context) : Fragment() {
         return inflater.inflate(R.layout.fragment_cloud, container, false)
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         val cloudAdapter = CloudFragAdapter(mContext)
+        val cloudFile : RecyclerView = view.findViewById(R.id.cloudFile)
+        val cloud_search : SearchView = view.findViewById(R.id.cloud_search)
+
         cloudFile.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = cloudAdapter

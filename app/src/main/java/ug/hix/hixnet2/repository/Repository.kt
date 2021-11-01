@@ -187,12 +187,10 @@ class Repository(val context : Context) {
         }
     }
 
-    suspend fun getMyDeviceInfo() : DeviceNode{
-
-        return withContext(Dispatchers.IO) {
+    suspend fun getMyDeviceInfo() = withContext(Dispatchers.IO) {
             deviceDao.getDeviceInfo()
-        }
     }
+
     @ExperimentalCoroutinesApi
     suspend fun getUpdatedDeviceFlow(): Flow<DeviceNodeWithWifiConfig?>{
         return deviceDao.getDeviceUpdateFlow().map { device ->

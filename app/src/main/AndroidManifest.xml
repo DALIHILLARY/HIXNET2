@@ -3,33 +3,14 @@
           xmlns:tools="http://schemas.android.com/tools"
           package="ug.hix.hixnet2">
     <uses-sdk tools:overrideLibrary="com.google.zxing.client.android" />
-    <uses-permission
-            android:name="android.permission.ACCESS_WIFI_STATE"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.CHANGE_WIFI_STATE"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.ACCESS_FINE_LOCATION"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.INTERNET"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.ACCESS_NETWORK_STATE"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.ACCESS_COARSE_LOCATION"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.READ_EXTERNAL_STORAGE"
-            android:required="true"/>
-    <uses-permission
-            android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-            android:required="true"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.STORAGE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.CAMERA"/>
@@ -57,9 +38,11 @@
 
         <activity
                 android:name=".HomeActivity"
+                android:exported="false"
                 android:launchMode="singleInstance">
         </activity>
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
@@ -70,10 +53,13 @@
                 android:name=".CaptureActivity"
                 android:screenOrientation="portrait"
                 android:stateNotNeeded="true"
+                android:exported="false"
                 android:windowSoftInputMode="stateAlwaysHidden"/>
 
-        <service android:name=".services.MeshDaemon"/>
+        <service android:name=".services.MeshDaemon"
+        android:exported="false"/>
         <service android:name="androidx.work.impl.foreground.SystemForegroundService"
+                 android:exported="false"
                  tools:node="merge"/>
     </application>
 

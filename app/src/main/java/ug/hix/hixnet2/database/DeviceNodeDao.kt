@@ -59,13 +59,13 @@ interface DeviceNodeDao {
     fun getDeviceInfo() : DeviceNode
 
     @Query("SELECT privateKey FROM devicenode WHERE isMe = 1 ")
-    fun getMyPrivateKey() : String
+    fun getMyPrivateKey() : String?
 
     @Query("SELECT publicKey FROM devicenode WHERE isMe =  1")
-    fun getMyPublicKey() : String
+    fun getMyPublicKey() : String?
 
     @Query("SELECT meshID FROM devicenode WHERE isMe = 1")
-    fun getMyPid()  : String
+    fun getMyPid()  : String?
 
     @Query("SELECT publicKey FROM devicenode WHERE meshID LIKE :meshId")
     fun getNodePublicKey(meshId : String) : String
