@@ -5,18 +5,18 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Log
 import androidx.work.*
+import com.google.gson.Gson
 import com.snatik.storage.Storage
 import kotlinx.coroutines.*
+import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.toByteString
 import ug.hix.hixnet2.cyphers.Generator
-import ug.hix.hixnet2.database.FileName
-import ug.hix.hixnet2.database.FileSeeder
-import ug.hix.hixnet2.database.Name
-import ug.hix.hixnet2.database.WifiConfig
+import ug.hix.hixnet2.database.*
 import ug.hix.hixnet2.models.*
+import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.database.File as DFile
 import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.workers.MergeFileWorker
@@ -24,6 +24,7 @@ import ug.hix.hixnet2.workers.SendFileWorker
 import java.io.File
 import java.io.RandomAccessFile
 import java.net.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.properties.Delegates
 
 @ExperimentalCoroutinesApi
@@ -32,15 +33,15 @@ class Licklider(private val mContext: Context, private val repo: Repository){
     private val TAG = javaClass.simpleName
     private var group : InetAddress? = null
     private val storage = Storage(mContext)
-    private val coroutineLock = Mutex()
-    private var keyCounter = mutableMapOf<String,Int>()
-    private val ackTimerMap = mutableMapOf<String,Job>()
-    private val seqTimerMap = mutableMapOf<String, Job>()
-    private val nextPacket = mutableMapOf<String,Int>()
-    private val outOfSeqPackets = mutableMapOf<String,List<Int>>()
-    private val receiverBuffer = mutableMapOf<String,ByteArray>()
-    private val senderBuffer = mutableMapOf<String, List<Packet>>()
-    private val senderCounter = mutableMapOf<String, Int>()
+    private var keyCounter = ConcurrentHashMap<String,Int>()
+    private val ackTimerMap = ConcurrentHashMap<String,Job>()
+    private val seqTimerMap = ConcurrentHashMap<String, Job>()
+    private val nextPacket = ConcurrentHashMap<String,Int>()
+    private val outOfSeqPackets = ConcurrentHashMap<String,List<Int>>()
+    private val receiverBuffer = ConcurrentHashMap<String,ByteArray>()
+    private val senderBuffer = ConcurrentHashMap<String, List<Packet>>()
+    private val job = Job()
+    private val scopeDefault = CoroutineScope(job + Dispatchers.Default)
 
     private val PORT = 33456
     private var p2pSocket = MulticastSocket(33456)
@@ -64,6 +65,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
     }
 
     suspend fun loadData(message: Any, toMeshId: String = ""){
+        Log.d(TAG,"Sending. $message to $toMeshId")
         var isFile = false
         var packet = Packet()
         lateinit var buffer: ByteArray
@@ -98,27 +100,27 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                 buffer = PName.ADAPTER.encode(message)
             }
             is PFileName -> {
-                packet = packet.copy(messageType = message.type,port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer = PFileName.ADAPTER.encode(message)
             }
             is DeviceNode -> {
-                packet = packet.copy(messageType = message.type,port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer  = DeviceNode.ADAPTER.encode(message)
             }
             is ListPFileSeeder -> {
-                packet = packet.copy(messageType = "${message.type}List",port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer = ListPFileSeeder.ADAPTER.encode(message)
             }
             is ListPName -> {
-                packet = packet.copy(messageType = "${message.type}List",port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer = ListPName.ADAPTER.encode(message)
             }
             is ListPFileName -> {
-                packet = packet.copy(messageType = "${message.type}List",port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer = ListPFileName.ADAPTER.encode(message)
             }
             is ListDeviceNode -> {
-                packet = packet.copy(messageType = "${message.type}List",port = PORT)
+                packet = packet.copy(messageType = message.type, port = PORT)
                 buffer  = ListDeviceNode.ADAPTER.encode(message)
             }
             is TransFile -> {
@@ -135,7 +137,6 @@ class Licklider(private val mContext: Context, private val repo: Repository){
         }
         if(!isFile){
             splitter(packet,buffer)
-
         }
     }
     suspend fun loadData(message: ByteArray, type: String, toMeshId: String = ""){
@@ -148,7 +149,6 @@ class Licklider(private val mContext: Context, private val repo: Repository){
         val file = File(mFile.path!!)
         packet = packet.copy(messageType = "FILE",port = PORT, packetID = mFile.CID,originalFromMeshID = device.meshID,toMeshID = toMeshId)
         splitter(mPacket = packet, file = file, offsets = offsets)
-
     }
 
     private suspend fun splitter(mPacket : Packet, buffer: ByteArray? = null, file: File? = null, offsets: List<Int>? = null){
@@ -173,7 +173,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                forward(packet)
                 withContext(Dispatchers.IO){
                     while(true){
-                        if(runtime.freeMemory() >= 18000) {
+                        if(runtime.freeMemory() >= 10000) {
                             if(offsets != null){
                                 if( i in offsets){
                                     val randomAccessFile = RandomAccessFile(file,"r")
@@ -205,7 +205,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                             }
                             i++
                         }else{
-                            Log.d("runningOut", " I AM ALMOST DONE HERE")
+                            Log.e("runningOut", " I AM ALMOST DONE HERE")
                         }
                     }
 
@@ -233,8 +233,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
             }
     }
 
-    @ExperimentalCoroutinesApi
-    fun receiver(multicastAddress : String) = GlobalScope.launch{
+    fun receiver(multicastAddress : String) = scopeDefault.launch{
         if(!multicastLock.isHeld){
             multicastLock.acquire()
         }
@@ -267,7 +266,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                     try{
                         p2pSocket.receive(packet)
                         Log.d("p2p0receiver","p2p0 data received")
-                        GlobalScope.launch{
+                        scopeDefault.launch{
                             packetHandler(packet.data, "p2p0")
                         }
                     }catch(e: SocketException) {
@@ -286,7 +285,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                     try{
                         wlanSocket.receive(packet)
                         Log.d("wlan0receiver","wlan0 data received")
-                        GlobalScope.launch{
+                        scopeDefault.launch{
                             packetHandler(packet.data,"wlan0")
                         }
                     }catch(e: SocketException) {
@@ -399,57 +398,60 @@ class Licklider(private val mContext: Context, private val repo: Repository){
     private suspend fun forward(mPacket: Packet, reliable : Boolean = true){
         var packet = mPacket
         val link = getLink(packet.toMeshID,packet.messageType)
-        val data = Packet.ADAPTER.encode(packet)
-        val port = packet.port
-        packet = packet.copy(fromMeshID = device.multicastAddress)
-        //check if primary mesh buffers are empty
-//        if(primaryBuffers.isEmpty()) {
-//        if(receiverBuffer.isEmpty()) {
-//            if(link.first().first != "notAvailable"){
+        //send the packet if route found
+        if(link.first().first != "notAvailable") {
+            val data = Packet.ADAPTER.encode(packet)
+            val port = packet.port
+            packet = packet.copy(fromMeshID = device.multicastAddress)
+            //check if primary mesh buffers are empty
+    //        if(primaryBuffers.isEmpty()) {
+    //        if(receiverBuffer.isEmpty()) {
+    //            if(link.first().first != "notAvailable"){
 
-//                link.forEach { address ->
-//                    packet = packet.copy(fromMeshID = device.meshID,timeToLive = address.third*2)
-//                    send(data,address.first,port,address.second)
-//                }
-//            }else{
-//                if(!packet.messageType.endsWith("Update"))
-//                    coroutineLock.withLock {
-//                        queueBuffer.add(packet)
-//                    }
-//                else {}
-//            }
-//        }else{
-//            coroutineLock.withLock {
-//                queueBuffer.add(packet)
-//            }
-//        }
-        when {
-            packet.messageType.startsWith("ACK") -> {
-                //DO NOTHING
-            }
-            packet.messageType == "FILE" -> {
-//                ensure that the receiverBuffer is empty before any transmissions
+    //                link.forEach { address ->
+    //                    packet = packet.copy(fromMeshID = device.meshID,timeToLive = address.third*2)
+    //                    send(data,address.first,port,address.second)
+    //                }
+    //            }else{
+    //                if(!packet.messageType.endsWith("Update"))
+    //                    coroutineLock.withLock {
+    //                        queueBuffer.add(packet)
+    //                    }
+    //                else {}
+    //            }
+    //        }else{
+    //            coroutineLock.withLock {
+    //                queueBuffer.add(packet)
+    //            }
+    //        }
+            when {
+                packet.messageType.startsWith("ACK") -> {
+                    //DO NOTHING
+                }
+                packet.messageType == "FILE" -> {
+    //                ensure that the receiverBuffer is empty before any transmissions
 
-            }
-            else -> {
-                if(reliable) {
-//                these are mesh updates
-                    if (senderBuffer.containsKey(packet.packetID)) {
-//                    append packet to the senderBuffer
-                        val packets = senderBuffer[packet.packetID]!!
-                        senderBuffer[packet.packetID] = packets.plus(packet)
-                    } else {
-                        senderBuffer[packet.packetID] = listOf(packet)
-                        senderCounter[packet.packetID] = 0
+                }
+                else -> {
+                    if(reliable) {
+    //                these are mesh updates
+                        if (senderBuffer.containsKey(packet.packetID)) {
+    //                    append packet to the senderBuffer
+                            val packets = senderBuffer[packet.packetID]!!
+                            senderBuffer[packet.packetID] = packets.plus(packet)
+                        } else {
+                            senderBuffer[packet.packetID] = listOf(packet)
+                        }
+//                        reset seqTimer on each packet chunk
+                        val previousSeqTimer = seqTimerMap[packet.packetID]
+                        previousSeqTimer?.cancel()
                         seqTimerMap[packet.packetID] = seqTimer(packet, 1)
                     }
+                    Log.e(TAG,"senderBuffer: $senderBuffer")
                 }
 
             }
 
-        }
-        //send the packet
-        if(link.first().first != "notAvailable") {
             link.forEach { address ->
 //                packet = packet.copy(fromMeshID = device.meshID, timeToLive = address.third * 2)
                 send(data, address.first, port, address.second)
@@ -473,7 +475,13 @@ class Licklider(private val mContext: Context, private val repo: Repository){
             }
             packetType.endsWith("hello",true) -> {
                 listOf(Triple(meshId, "wlan0", 1))
-            } else -> {
+            }
+            packetType.endsWith("helloAckList",true) -> {
+                listOf(Triple(meshId,"p2p0",1))
+            }
+            packetType.endsWith("helloList",true) -> {
+                listOf(Triple(meshId, "wlan0", 1))
+            }else -> {
                 listOf(repo.getLink(meshId))
             }
         }
@@ -514,92 +522,99 @@ class Licklider(private val mContext: Context, private val repo: Repository){
     }
 
     private suspend fun  dataMapping(packet : Packet, iFace: String){
-        when {
-            packet.messageType == "FILE" -> {
-                // to be implemented later
-                val path = mContext.getExternalFilesDir(null)?.absolutePath
-                if(!storage.isDirectoryExists(path +"/Chunks/.${packet.packetID}")){
-                    storage.createDirectory(path +"/Chunks/.${packet.packetID}")
+        try{
+            when {
+                packet.messageType == "FILE" -> {
+                    // to be implemented later
+                    val path = mContext.getExternalFilesDir(null)?.absolutePath
+                    if(!storage.isDirectoryExists(path +"/Chunks/.${packet.packetID}")){
+                        storage.createDirectory(path +"/Chunks/.${packet.packetID}")
+                    }
+                    if(packet.offset != -1)
+                        storage.createFile(path +"/Chunks/.${packet.packetID}/${packet.offset}.prt",packet.payload.toByteArray())
+                    else{
+                        storage.createFile(path +"/Chunks/.${packet.packetID}/filename.txt", String(packet.payload.toByteArray()))
+                    }
+                    if(storage.getFiles(path +"/Chunks/.${packet.packetID}/").count() == packet.expected + 1 ){
+                        val mergeWorker = OneTimeWorkRequestBuilder<MergeFileWorker>()
+                            .setInputData(workDataOf("fileDir" to path +"/Chunks/.${packet.packetID}"))
+                            .addTag(packet.packetID)
+                            .build()
+                        WorkManager.getInstance(mContext).enqueueUniqueWork(packet.packetID,ExistingWorkPolicy.KEEP,mergeWorker)
+                    }
                 }
-                if(packet.offset != -1)
-                    storage.createFile(path +"/Chunks/.${packet.packetID}/${packet.offset}.prt",packet.payload.toByteArray())
-                else{
-                    storage.createFile(path +"/Chunks/.${packet.packetID}/filename.txt", String(packet.payload.toByteArray()))
-                }
-                if(storage.getFiles(path +"/Chunks/.${packet.packetID}/").count() == packet.expected + 1 ){
-                    val mergeWorker = OneTimeWorkRequestBuilder<MergeFileWorker>()
-                        .setInputData(workDataOf("fileDir" to path +"/Chunks/.${packet.packetID}"))
-                        .addTag(packet.packetID)
-                        .build()
-                    WorkManager.getInstance(mContext).enqueueUniqueWork(packet.packetID,ExistingWorkPolicy.KEEP,mergeWorker)
-                }
-            }
-            packet.messageType.startsWith("ACK") -> {
-                decodeData(packet.payload.toByteArray(),packet.messageType,iFace)
+                packet.messageType.startsWith("ACK") -> {
+                    decodeData(packet.payload.toByteArray(),packet.messageType,iFace)
 
-            }
-            else -> {
-                if(receiverBuffer.containsKey(packet.packetID)){
-                    if(packet.offset < nextPacket[packet.packetID]!!){
-                        //drop the packet and send ack for next expected packet
-                        val ack = ACK(packet.packetID,listOf(nextPacket[packet.packetID]!!),type= "ACK-${packet.messageType}")
-                        loadData(ack,packet.fromMeshID)
-                    }else{
-                        val buffer = receiverBuffer[packet.packetID]!!
-                        if(packet.offset > nextPacket[packet.packetID]!!) {
-                            val outOfSeqList = outOfSeqPackets[packet.packetID]!!
-                            outOfSeqPackets[packet.packetID] = outOfSeqList.plus(packet.offset)
-                            //send ack for next expected  packet
+                }
+                else -> {
+                    if(receiverBuffer.containsKey(packet.packetID)){
+                        if(packet.offset < nextPacket[packet.packetID]!!){
+                            //drop the packet and send ack for next expected packet
                             val ack = ACK(packet.packetID,listOf(nextPacket[packet.packetID]!!),type= "ACK-${packet.messageType}")
                             loadData(ack,packet.fromMeshID)
                         }else{
+                            val buffer = receiverBuffer[packet.packetID]!!
+                            var nextIndex = nextPacket[packet.packetID]!!
+                            if(packet.offset > nextIndex) {
+                                val outOfSeqList = outOfSeqPackets[packet.packetID]!!
+                                outOfSeqPackets[packet.packetID] = outOfSeqList.plus(packet.offset)
+                                //send ack for next expected  packet
+                                val ack = ACK(packet.packetID,listOf(nextIndex),type= "ACK-${packet.messageType}")
+                                loadData(ack,packet.fromMeshID)
+                            }
 //                        increment expected to next and must not be in out seq
-                            var nextIndex = packet.offset
                             while(true) {
-                                nextIndex++
+                                nextIndex += 1
                                 if(!outOfSeqPackets[packet.packetID]!!.contains(nextIndex)) break
                             }
-                            nextPacket[packet.packetID] = packet.offset + 1
+                            nextPacket[packet.packetID] = nextIndex
+
+                            /**
+                             * write the received byte data buffer positions
+                             */
+                            val startIndex = (packet.offset - 1)*1200
+                            packet.payload.toByteArray().forEachIndexed { index, byte ->
+                                buffer[startIndex + index] = byte
+                            }
                         }
-                        /**
-                         * write the received byte data buffer positions
-                         */
+
+                    }else{
+                        outOfSeqPackets[packet.packetID] = listOf()
+                        val buffer = ByteArray(packet.expected * 1200)
                         val startIndex = (packet.offset - 1)*1200
                         packet.payload.toByteArray().forEachIndexed { index, byte ->
                             buffer[startIndex + index] = byte
                         }
+                        receiverBuffer[packet.packetID] = buffer
+                        if(packet.offset != 1) {
+                            nextPacket[packet.packetID] = 1
+                            outOfSeqPackets[packet.packetID] = listOf(packet.offset)
+                        }else{
+                            nextPacket[packet.packetID] = packet.offset+1
+                        }
                     }
 
-                }else{
-                    outOfSeqPackets[packet.packetID] = listOf()
-                    val buffer = ByteArray(packet.expected * 1200)
-                    val startIndex = (packet.offset - 1)*1200
-                    packet.payload.toByteArray().forEachIndexed { index, byte ->
-                        buffer[startIndex + index] = byte
-                    }
-                    receiverBuffer[packet.packetID] = buffer
-                    if(packet.offset != 1) {
-                        nextPacket[packet.packetID] = 1
-                        outOfSeqPackets[packet.packetID] = listOf(packet.offset)
-                    }else{
-                        nextPacket[packet.packetID] = packet.offset+1
-                    }
-                }
-
-                if(nextPacket[packet.packetID]!! > packet.expected){
-                    val data = receiverBuffer[packet.packetID]!!.dropLastWhile { it.toString() == "0" }.toByteArray()
+                    if(nextPacket[packet.packetID]!! > packet.expected){
+                        val data = receiverBuffer[packet.packetID]!!.dropLastWhile { it.toString() == "0" }.toByteArray()
+//                    send empty ack to signify end of packet transfer
+                        val ack = ACK(packet.packetID,listOf(),type= "ACK-${packet.messageType}")
+                        loadData(ack,packet.fromMeshID)
 //                 HOUSE CLEANING
-                    receiverBuffer.remove(packet.packetID)
-                    nextPacket.remove(packet.packetID)
-                    outOfSeqPackets.remove(packet.packetID)
-                    decodeData(data,packet.messageType,iFace)
+                        receiverBuffer.remove(packet.packetID)
+//                  nextPacket.remove(packet.packetID)    //keep reference to last so no duplicates received
+                        outOfSeqPackets.remove(packet.packetID)
+                        ackTimerMap[packet.packetID]?.cancel()   //stop ackTimer for the packet
+                        decodeData(data,packet.messageType,iFace)
 
-                }else{
-                    //reset the ack timer for that packetID
-                    ackTimerMap[packet.packetID] = ackTimer(packet)
+                    }else{
+                        //reset the ack timer for that packetID
+                        val previousAckTimer = ackTimerMap[packet.packetID]
+                        previousAckTimer?.cancel()
+                        ackTimerMap[packet.packetID] = ackTimer(packet)
+                    }
                 }
             }
-        }
 //        if(!checkForbidden(packet)){
 //            if(packet.messageType == "FILE"){
 //                withContext(Dispatchers.IO){
@@ -674,6 +689,10 @@ class Licklider(private val mContext: Context, private val repo: Repository){
 //            }
 //
 //        }
+
+        }catch(e: NullPointerException) {
+            Log.e(TAG,"Null pointer exception during decode: ${packet.packetID}")
+        }
 
     }
     private fun checkForbidden(packet: Packet) : Boolean {
@@ -782,28 +801,29 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                     if(devices.isNotEmpty()) {
                         val sendDevices = devices.mapNotNull {
                             it?.let {
-                                DeviceNode(
-                                    fromMeshID = device.meshID,
-                                    meshID = it.device.meshID,
-                                    multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {
-                                        device.meshID
-                                    },
-                                    connAddress = it.wifiConfig.connAddress,
-                                    Hops = it.device.hops,
-                                    macAddress = it.wifiConfig.mac,
-                                    publicKey = it.device.publicKey,
-                                    hasInternetWifi = it.device.hasInternetWifi,
-                                    wifi = it.wifiConfig.ssid,
-                                    passPhrase = it.wifiConfig.passPhrase,
-                                    version = it.device.version,
-                                    status = it.device.status,
-                                    modified = it.device.modified,
-                                    type = "meshHelloAck"
-                                )
+//                                DeviceNode(
+//                                    fromMeshID = device.meshID,
+//                                    meshID = it.device.meshID,
+//                                    multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {
+//                                        device.meshID
+//                                    },
+//                                    connAddress = it.wifiConfig.connAddress,
+//                                    Hops = it.device.hops,
+//                                    macAddress = it.wifiConfig.mac,
+//                                    publicKey = it.device.publicKey,
+//                                    hasInternetWifi = it.device.hasInternetWifi,
+//                                    wifi = it.wifiConfig.ssid,
+//                                    passPhrase = it.wifiConfig.passPhrase,
+//                                    version = it.device.version,
+//                                    status = it.device.status,
+//                                    modified = it.device.modified,
+//                                    type = "meshHelloAck"
+//                                )
+                                Gson().toJson(it)
                             }
 
                         }
-                        loadData(message = sendDevices, toMeshId = command.last())
+                        loadData(message = ListDeviceNode(sendDevices,"meshHelloAckList"), toMeshId = command.last())
 
                     }
 //                    devices.forEach {
@@ -834,8 +854,8 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                 }
                 try{
                     if(fileSeeders.isNotEmpty()) {
-                        val pFileSeeders =  fileSeeders.map { PFileSeeder(it.CID,it.meshID,it.status,device.meshID,type = "fileSeederHelloAck") }
-                        loadData(pFileSeeders, toMeshId = command.last())
+                        val pFileSeeders =  fileSeeders.map {Gson().toJson(it)}
+                        loadData(ListPFileSeeder(pFileSeeders,"fileSeederHelloAckList"), toMeshId = command.last())
                     }
 //                    fileSeeders.forEach {
 //                        Log.e(TAG,"sending helloAck fileSeeders to : ${command.last()}")
@@ -848,8 +868,8 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                 }
                 try{
                     if (fileNames.isNotEmpty()) {
-                        val pFileNames = fileNames.map{ PFileName(it.CID,it.name_slub,it.status,device.meshID,it.modified,"fileNameHelloAck",it.file_size)}
-                        loadData(pFileNames, toMeshId = command.last())
+                        val pFileNames = fileNames.map{Gson().toJson(it)}
+                        loadData(ListPFileName(pFileNames,"fileNameHelloAckList"), toMeshId = command.last())
                     }
 //                    fileNames.forEach {
 //                        Log.e(TAG,"sending helloAck filenames to : ${command.last()}")
@@ -862,8 +882,8 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                 }
                 try{
                     if(names.isNotEmpty()) {
-                        val pNames = names.map{ PName(it.name, it.name_slub, device.meshID,it.status, type = "nameHelloAck")}
-                        loadData(pNames, toMeshId = command.last())
+                        val pNames = names.map{ Gson().toJson(it) }
+                        loadData(ListPName(pNames,"nameHelloAckList"), toMeshId = command.last())
                     }
 //                    names.forEach {
 //                        Log.e(TAG,"sending helloAck names to : ${command.last()}")
@@ -914,14 +934,15 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                     val sendPackets = senderBuffer[ack.ackID]
 
                     if(packets.isEmpty()) {
+//                        clear sender buffer and seqTimer
                         senderBuffer.remove(ack.ackID)
+                        seqTimerMap.remove(ack.ackID)
 
                     }else if(packets.size == 1) {
                         sendPackets?.let {
                             val packet = sendPackets.first { it.offset == packets.first() }
                             //delete the packets below that
                             senderBuffer[ack.ackID] = sendPackets.filter {it.offset >= packets.first()}
-
                             forward(packet,false)
                         }
                     }else{
@@ -935,13 +956,13 @@ class Licklider(private val mContext: Context, private val repo: Repository){
                 }
             }
 
-            type.startsWith("fileSeeder") -> {
+            type.startsWith("fileSeeder") && !type.endsWith("List") -> {
                 Log.d(TAG,"RECEIVED FileSeeder")
                 val pFileSeeder = withContext(Dispatchers.IO){PFileSeeder.ADAPTER.decode(array)}
                 val fileSeeder = FileSeeder(pFileSeeder.cid,pFileSeeder.meshId,pFileSeeder.status,pFileSeeder.modified,pFileSeeder.modified_by)
                 repo.updateFileSeeder(fileSeeder)
             }
-            type.startsWith("name") -> {
+            type.startsWith("name") && !type.endsWith("List") -> {
                 Log.d(TAG,"RECEIVED NAME")
                 val pName = withContext(Dispatchers.IO){PName.ADAPTER.decode(array)}
                 val name = Name(pName.name_slub,pName.name,pName.status,pName.modified,pName.modified_by)
@@ -950,13 +971,13 @@ class Licklider(private val mContext: Context, private val repo: Repository){
 
 
             }
-            type.startsWith("fileName") -> {
+            type.startsWith("fileName") && !type.endsWith("List") -> {
                 Log.d(TAG,"RECEIVED FILENAME")
                 val pFileName = withContext(Dispatchers.IO){PFileName.ADAPTER.decode(array)}
                 val fileName = FileName(pFileName.cid,pFileName.name_slub,pFileName.file_size,pFileName.status,pFileName.modified,pFileName.modified_by)
                 repo.updateFileName(fileName)
             }
-            type.startsWith("mesh") -> {
+            type.startsWith("mesh") && !type.endsWith("List") -> {
                 Log.d(TAG,"RECEIVED MESH")
                 val deviceUpdate = withContext(Dispatchers.IO){DeviceNode.ADAPTER.decode(array)}
                 val deviceObj = ug.hix.hixnet2.database.DeviceNode(
@@ -994,48 +1015,52 @@ class Licklider(private val mContext: Context, private val repo: Repository){
             }
             type.startsWith("fileSeeder") && type.endsWith("List")-> {
                 val pFileSeederList = withContext(Dispatchers.IO){ListPFileSeeder.ADAPTER.decode(array)}
-                val fileSeeder = pFileSeederList.data.map{FileSeeder(it.cid,it.meshId,it.status,it.modified,it.modified_by)}
+                val fileSeeder = pFileSeederList.data.map{Gson().fromJson(it,FileSeeder::class.java)}
                 Log.d(TAG,"Received file seeders: $fileSeeder")
-//                repo.updateFileSeeder(fileSeeder)
+                repo.updateFileSeeder(fileSeeder)
             }
             type.startsWith("name") && type.endsWith("List") -> {
                 val pNameList = withContext(Dispatchers.IO){ListPName.ADAPTER.decode(array)}
-                val name = pNameList.data.map{Name(it.name_slub,it.name,it.status,it.modified,it.modified_by)}
+                val name = pNameList.data.map{Gson().fromJson(it,Name::class.java)}
                 Log.d(TAG,"Received Names: $name")
-
-//                repo.updateName(name)
+                repo.updateName(name)
 
 
             }
             type.startsWith("fileName") && type.endsWith("List") -> {
                 val pFileNameList = withContext(Dispatchers.IO){ListPFileName.ADAPTER.decode(array)}
-                val fileName = pFileNameList.data.map{FileName(it.cid,it.name_slub,it.file_size,it.status,it.modified,it.modified_by)}
-                Log.d(TAG,"REceived File names: $fileName")
-//                repo.updateFileName(fileName)
+                val fileName = pFileNameList.data.map{Gson().fromJson(it,FileName::class.java)}
+                Log.d(TAG,"Received File names: $fileName")
+                repo.updateFileName(fileName)
             }
             type.startsWith("mesh") && type.endsWith("List") -> {
                 Log.d(TAG,"RECEIVED MESH")
                 val deviceUpdateList = withContext(Dispatchers.IO){ListDeviceNode.ADAPTER.decode(array)}
-                val deviceObj = deviceUpdateList.data.map{ug.hix.hixnet2.database.DeviceNode(
-                    meshID = it.meshID,
-                    multicastAddress = it.multicastAddress,
-                    hops = it.Hops + 1,
-                    publicKey = it.publicKey,
-                    hasInternetWifi = it.hasInternetWifi,
+                val devWithWifi = deviceUpdateList.data.map{ Gson().fromJson(it,DeviceNodeWithWifiConfig::class.java) }
+                val deviceObj = devWithWifi.map{
+                    val device = it.device
+                    ug.hix.hixnet2.database.DeviceNode(
+                    meshID = device.meshID,
+                    multicastAddress = device.multicastAddress,
+                    hops = device.hops + 1,
+                    publicKey = device.publicKey,
+                    hasInternetWifi = device.hasInternetWifi,
                     iface = iFace,
-                    status = it.status,
-                    version = it.version,
-                    modified = it.modified
+                    status = device.status,
+                    version = device.version,
+                    modified = device.modified
                 )}
-                val wifiConfigObj = deviceUpdateList.data.map{WifiConfig(
-                    meshID = it.meshID,
-                    mac = it.macAddress,
-                    ssid = it.wifi,
-                    passPhrase = it.passPhrase,
-                    connAddress = it.connAddress
+                val wifiConfigObj = devWithWifi.map{
+                    val wifi = it.wifiConfig
+                    WifiConfig(
+                    meshID = wifi.meshID,
+                    mac = wifi.mac,
+                    ssid = wifi.ssid,
+                    passPhrase = wifi.passPhrase,
+                    connAddress = wifi.connAddress
                 )}
                 Log.d(TAG,"Received devices: $deviceObj")
-//                repo.insertOrUpdateDeviceWithConfig(deviceObj,wifiConfigObj)
+                repo.insertOrUpdateDeviceWithConfig(deviceObj,wifiConfigObj)
 //
 //                //disable wifi if is hello and wifi is known to refuse reconnection
 //                if(type.endsWith("hello") && deviceObj.multicastAddress.startsWith("230.")){
@@ -1053,42 +1078,55 @@ class Licklider(private val mContext: Context, private val repo: Repository){
         }
 
     }
-    private suspend fun ackTimer(packet : Packet) = GlobalScope.launch {
+    private suspend fun ackTimer(packet : Packet) = scopeDefault.launch {
+        var count = 0
         while(isActive) {
             try {
                 delay(ACK_TIMEOUT)
+                if (count > 20) {
+                    outOfSeqPackets.remove(packet.packetID)
+                    receiverBuffer.remove(packet.packetID)
+                    nextPacket.remove(packet.packetID)
+                    break
+                }
                 /**
                  * After the delay, check for out seq packets
                  * and the unreceived packets
                  */
-                if(outOfSeqPackets[packet.packetID].isNullOrEmpty() && nextPacket[packet.packetID] == null ) break
+                val outOfSeqPacketList = outOfSeqPackets[packet.packetID]
+                val mNextPacket  = nextPacket[packet.packetID]
+                if(mNextPacket != null && !outOfSeqPacketList.isNullOrEmpty()){
+                    outOfSeqPackets[packet.packetID] = outOfSeqPacketList.filter { offset ->
+                        offset > mNextPacket }
+                }
+
+                if(outOfSeqPackets[packet.packetID].isNullOrEmpty()) break
                 val unAckPackets = IntRange(nextPacket[packet.packetID]!!,packet.expected+1).filter { !outOfSeqPackets[packet.packetID]!!.contains(it) }
                 val ack = ACK(packet.packetID,unAckPackets)
                 loadData(ack, packet.fromMeshID)
+                count += 1
             }catch (e: Exception){
                 Log.e(TAG,"Something happened to the ackTimer",e)
             }
 
         }
-//        this.cancel()
     }
-    private suspend fun seqTimer(packet: Packet, hops : Int) = GlobalScope.launch {
+    private suspend fun seqTimer(packet: Packet, hops : Int) = scopeDefault.launch {
+        var count = 0
         while(isActive) {
             try {
                 delay(RESEND_TIMEOUT * hops)
                 val packets = senderBuffer[packet.packetID]
                 if(packets.isNullOrEmpty()) break
                 else{
-                    val count = senderCounter[packet.packetID]!!
 //                TODO("If count greater and is file u will find out")
                     if(count > 10) {
 //                        deque packets and counter since counter is out
                         senderBuffer.remove(packet.packetID)
-                        senderCounter.remove(packet.packetID)
                         break
                     }
                     else{
-                        senderCounter[packet.packetID] = count + 1
+                        count += 1
 //                    retransmit all remaining packet
                         packets.forEach{
 //                            do not enqueue the packets to sender buffer again
@@ -1129,9 +1167,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
         }
 
     }
-    @OptIn(DelicateCoroutinesApi::class)
-    @ExperimentalCoroutinesApi
-    private fun listeners() = GlobalScope.launch {
+    private fun listeners() = scopeDefault.launch {
         if(isActive) {
             //coroutine for new device and cloud file listeners
             launch {
@@ -1226,17 +1262,17 @@ class Licklider(private val mContext: Context, private val repo: Repository){
             }
         }
     }
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> runNonBlocking(block: suspend CoroutineScope.() -> T) : T {
-        var finished = false
-        var result : T? = null
-        GlobalScope.launch {
-            result = block()
-            finished = true
-        }
-        while(!finished);
-        return result as T
-    }
+//    @Suppress("UNCHECKED_CAST")
+//    private fun <T> runNonBlocking(block: suspend CoroutineScope.() -> T) : T {
+//        var finished = false
+//        var result : T? = null
+//        GlobalScope.launch {
+//            result = block()
+//            finished = true
+//        }
+//        while(!finished);
+//        return result as T
+//    }
 
     companion object {
         private lateinit var mWifiManager: WifiManager
@@ -1244,7 +1280,7 @@ class Licklider(private val mContext: Context, private val repo: Repository){
         @SuppressLint("StaticFieldLeak")
         private var instance: Licklider? = null
         var receiverJob: Job? = null //keep reference to the receiver job for easy destroying
-        lateinit var listenerJob: Job //keep reference to the listeners foe latter cleaning
+        lateinit var listenerJob: Job //keep reference to the listeners for later cleaning
 
         private val companionTAG = "CompanionLicklider"
 

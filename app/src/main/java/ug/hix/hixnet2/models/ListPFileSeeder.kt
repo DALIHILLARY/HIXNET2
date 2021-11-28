@@ -8,7 +8,6 @@ import com.squareup.wire.ProtoAdapter
 import com.squareup.wire.ProtoReader
 import com.squareup.wire.ProtoWriter
 import com.squareup.wire.WireField
-import com.squareup.wire.internal.redactElements
 import com.squareup.wire.internal.sanitize
 import kotlin.Any
 import kotlin.AssertionError
@@ -26,10 +25,10 @@ import okio.ByteString
 class ListPFileSeeder(
   @field:WireField(
     tag = 1,
-    adapter = "ug.hix.hixnet2.models.PFileSeeder#ADAPTER",
+    adapter = "com.squareup.wire.ProtoAdapter#STRING",
     label = WireField.Label.REPEATED
   )
-  val data: List<PFileSeeder> = emptyList(),
+  val data: List<String> = emptyList(),
   @field:WireField(
     tag = 2,
     adapter = "com.squareup.wire.ProtoAdapter#STRING"
@@ -64,13 +63,13 @@ class ListPFileSeeder(
 
   override fun toString(): String {
     val result = mutableListOf<String>()
-    if (data.isNotEmpty()) result += """data=$data"""
+    if (data.isNotEmpty()) result += """data=${sanitize(data)}"""
     result += """type=${sanitize(type)}"""
     return result.joinToString(prefix = "ListPFileSeeder{", separator = ", ", postfix = "}")
   }
 
   fun copy(
-    data: List<PFileSeeder> = this.data,
+    data: List<String> = this.data,
     type: String = this.type,
     unknownFields: ByteString = this.unknownFields
   ): ListPFileSeeder = ListPFileSeeder(data, type, unknownFields)
@@ -83,22 +82,22 @@ class ListPFileSeeder(
       "type.googleapis.com/ug.hix.hixnet2.models.ListPFileSeeder"
     ) {
       override fun encodedSize(value: ListPFileSeeder): Int = 
-        PFileSeeder.ADAPTER.asRepeated().encodedSizeWithTag(1, value.data) +
+        ProtoAdapter.STRING.asRepeated().encodedSizeWithTag(1, value.data) +
         ProtoAdapter.STRING.encodedSizeWithTag(2, value.type) +
         value.unknownFields.size
 
       override fun encode(writer: ProtoWriter, value: ListPFileSeeder) {
-        PFileSeeder.ADAPTER.asRepeated().encodeWithTag(writer, 1, value.data)
+        ProtoAdapter.STRING.asRepeated().encodeWithTag(writer, 1, value.data)
         if (value.type != "") ProtoAdapter.STRING.encodeWithTag(writer, 2, value.type)
         writer.writeBytes(value.unknownFields)
       }
 
       override fun decode(reader: ProtoReader): ListPFileSeeder {
-        val data = mutableListOf<PFileSeeder>()
+        val data = mutableListOf<String>()
         var type: String = ""
         val unknownFields = reader.forEachTag { tag ->
           when (tag) {
-            1 -> data.add(PFileSeeder.ADAPTER.decode(reader))
+            1 -> data.add(ProtoAdapter.STRING.decode(reader))
             2 -> type = ProtoAdapter.STRING.decode(reader)
             else -> reader.readUnknownField(tag)
           }
@@ -111,7 +110,6 @@ class ListPFileSeeder(
       }
 
       override fun redact(value: ListPFileSeeder): ListPFileSeeder = value.copy(
-        data = value.data.redactElements(PFileSeeder.ADAPTER),
         unknownFields = ByteString.EMPTY
       )
     }

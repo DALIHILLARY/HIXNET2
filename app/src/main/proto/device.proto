@@ -84,18 +84,18 @@ message Packet{
     string messageType = 10;
 }
 message ListPFileSeeder{
-    repeated PFileSeeder data = 1;
+    repeated string data = 1;
     string type = 2;
 }
 message ListPName{
-    repeated PName data = 1;
+    repeated string data = 1;
     string type = 2;
 }
 message ListPFileName{
-    repeated PFileName data = 1;
+    repeated string data = 1;
     string type = 2;
 }
 message ListDeviceNode{
-    repeated DeviceNode data = 1;
+    repeated string data = 1;
     string type = 2;
 }

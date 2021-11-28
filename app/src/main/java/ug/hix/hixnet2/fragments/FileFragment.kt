@@ -27,12 +27,13 @@ import ug.hix.hixnet2.util.OnSwipeTouchListener
 import ug.hix.hixnet2.viewmodel.FileViewModel
 
 
-class FileFragment(val mContext: Context) : Fragment() {
-    var mediaUri = arrayListOf<Uri>()
-    lateinit var fileViewModel : FileViewModel
-
+class FileFragment : Fragment() {
+    private var mediaUri = arrayListOf<Uri>()
+    private lateinit var fileViewModel : FileViewModel
+    private lateinit var mContext : Context
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mContext = this.requireContext()
     }
 
     override fun onCreateView(
@@ -135,13 +136,7 @@ class FileFragment(val mContext: Context) : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Glide.get(mContext).clearMemory()
-    }
-
-    companion object {
-        fun newFileInstance(context: Context) : FileFragment{
-            return FileFragment(context)
-        }
+        Glide.get(mContext.applicationContext).clearMemory()
     }
 
 }

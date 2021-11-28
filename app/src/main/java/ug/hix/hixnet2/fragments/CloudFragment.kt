@@ -18,10 +18,12 @@ import ug.hix.hixnet2.database.FileName
 import ug.hix.hixnet2.viewmodel.CloudFileViewModel
 
 
-class CloudFragment(private val mContext: Context) : Fragment() {
-    lateinit var cloudFileViewModel: CloudFileViewModel
+class CloudFragment : Fragment() {
+    private lateinit var cloudFileViewModel: CloudFileViewModel
+    private lateinit var mContext: Context
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mContext = this.requireContext()
     }
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -42,11 +44,10 @@ class CloudFragment(private val mContext: Context) : Fragment() {
             adapter = cloudAdapter
         }
         cloudFileViewModel = ViewModelProvider(this).get(CloudFileViewModel::class.java)
-        cloudFileViewModel.getCloudFiles(mContext).observe(viewLifecycleOwner,
-            Observer<List<FileName>> {
-                cloudAdapter.submitList(it)
-            }
-        )
+        cloudFileViewModel.getCloudFiles(mContext).observe(viewLifecycleOwner
+        ) {
+            cloudAdapter.submitList(it)
+        }
         cloud_search.setOnQueryTextListener( object: SearchView.OnQueryTextListener{
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
@@ -61,12 +62,6 @@ class CloudFragment(private val mContext: Context) : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Glide.get(mContext).clearMemory()
-    }
-
-    companion object {
-
-        @JvmStatic
-        fun newInstance(mContext: Context) = CloudFragment(mContext)
+        Glide.get(mContext.applicationContext).clearMemory()
     }
 }

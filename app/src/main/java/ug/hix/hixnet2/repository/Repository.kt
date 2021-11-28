@@ -115,6 +115,14 @@ class Repository(val context : Context) {
                 fileDao.addFileName(fileName)
         }
     }
+    suspend fun updateFileName(fileName: List<FileName>){
+        withContext(Dispatchers.IO){
+            fileName.forEach {
+                if(!isExistFileName(it))
+                    fileDao.addFileName(it)
+            }
+        }
+    }
     private suspend fun isExistFileName(fileName: FileName) : Boolean {
         val result = fileDao.getFileName(fileName.CID, fileName.name_slub)
         return if (result == null) false
@@ -128,6 +136,18 @@ class Repository(val context : Context) {
                 fileDao.addName(name)
         }
     }
+    suspend fun updateName(name: List<Name>){
+        withContext(Dispatchers.IO){
+            name.forEach {
+                if(!isExistName(it))
+                    fileDao.addName(it)
+            }
+        }
+    }
+
+    /**
+     * This a security measure
+     */
     private suspend fun isExistName(name: Name) : Boolean {
         val result = fileDao.getName(name.name_slub)
         return if(result == null) false
@@ -139,6 +159,14 @@ class Repository(val context : Context) {
         withContext(Dispatchers.IO){
             if(!isExistFileSeeder(fileSeeder))
                 fileDao.addFileSeeder(fileSeeder)
+        }
+    }
+    suspend fun updateFileSeeder(fileSeeder: List<FileSeeder>){
+        withContext(Dispatchers.IO){
+            fileSeeder.forEach {
+                if(!isExistFileSeeder(it))
+                    fileDao.addFileSeeder(it)
+            }
         }
     }
     private suspend fun isExistFileSeeder(fileSeeder: FileSeeder) : Boolean {
@@ -170,6 +198,14 @@ class Repository(val context : Context) {
         withContext(Dispatchers.IO){
             if(validateDeviceUpdate(device))
                 deviceDao.addDeviceWithConfig(device,wifiConfig)
+        }
+    }
+    suspend fun insertOrUpdateDeviceWithConfig(device: List<DeviceNode>, wifiConfig: List<WifiConfig>){
+        withContext(Dispatchers.IO){
+            device.forEachIndexed { index, deviceNode ->
+                if(validateDeviceUpdate(deviceNode))
+                    deviceDao.addDeviceWithConfig(deviceNode,wifiConfig[index])
+            }
         }
     }
     private suspend fun validateDeviceUpdate(device : DeviceNode) : Boolean {
@@ -208,9 +244,10 @@ class Repository(val context : Context) {
     suspend fun getAllDevices(): List<DeviceNodeWithWifiConfig?> {
         return withContext(Dispatchers.IO) {
             deviceDao.getAllDevices().map { device ->
+                val mDevice = device.copy(privateKey = "")
                 getWifiConfigByMeshId(device.meshID)?.let {
                     DeviceNodeWithWifiConfig(
-                        device = device,
+                        device = mDevice,
                         wifiConfig = it
                     )
                 }

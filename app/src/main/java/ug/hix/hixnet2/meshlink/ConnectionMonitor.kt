@@ -29,6 +29,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat.startActivity
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,13 +42,14 @@ import ug.hix.hixnet2.repository.Repository
 import ug.hix.hixnet2.util.AddConfigs
 
 
- class ConnectionMonitor(private val mContext: Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel, private var licklider : Licklider, private val repo: Repository)  : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener{
+ class   ConnectionMonitor(private val mContext: Context, private val manager: WifiP2pManager, private val channel : WifiP2pManager.Channel, private var licklider : Licklider, private val repo: Repository)  : WifiP2pManager.ConnectionInfoListener, WifiP2pManager.GroupInfoListener{
     private val TAG = javaClass.simpleName
     private val cm = mContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val mWifiManager = mContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val addConfig = AddConfigs(mContext,repo)
      private val job = Job()
-     private val scopeDefault = CoroutineScope(job + newSingleThreadContext("ConnThread"))
+//     private val scopeDefault = CoroutineScope(job + newSingleThreadContext("ConnThread"))
+     private val scopeDefault = CoroutineScope(job + Dispatchers.Default)
      private val scopeIO = CoroutineScope(job + Dispatchers.IO)
     private val device = runBlocking {repo.getMyDeviceInfo()}
     private  var foundDevices = mutableMapOf<String,String>()
@@ -98,7 +100,9 @@ import ug.hix.hixnet2.util.AddConfigs
             val isCellular = networkCapabilities?.hasTransport(TRANSPORT_CELLULAR)
             if (isWifi == true) {
                 if(Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) conSSID = mWifiManager.connectionInfo.ssid
-                sendHello()
+                scopeDefault.launch {
+                    sendHello()
+                }
                 Log.d(TAG, "connected to wifi network")
             }
             if (isVpn == true) {
@@ -129,7 +133,6 @@ import ug.hix.hixnet2.util.AddConfigs
             super.onLost(network)
         }
     }
-    @OptIn(DelicateCoroutinesApi::class)
     private val meshReceiver = object: BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
             when(intent.action) {
@@ -160,14 +163,16 @@ import ug.hix.hixnet2.util.AddConfigs
                     else
                         Log.e(TAG,"wifi Scan Failed")
                     wifiScanResults = mWifiManager.scanResults
-                    if(wifiScanResults.isNotEmpty()) filterResults()
+                    scopeDefault.launch{
+                        if(wifiScanResults.isNotEmpty()) filterResults()
+                    }
 
                 }
                 WifiManager.WIFI_STATE_CHANGED_ACTION -> {
 //                    check if wifi is on or off
                     when(intent.getIntExtra(EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_DISABLED)) {
                         WifiManager.WIFI_STATE_DISABLED -> {
-                            Log.d(TAG,"Wifi is disconnected")
+                            Log.d(TAG,"Wifi is disabled")
                         }
                         WifiManager.WIFI_STATE_ENABLED -> {
                             Log.d(TAG,"Wifi is enabled")
@@ -179,49 +184,50 @@ import ug.hix.hixnet2.util.AddConfigs
         }
 
     }
-    private fun sendHello() {
+    private suspend fun sendHello() {
         //determine wifi type direct or normal from ssid
 
         //TODO("CHECK Both ssid and bssid, possible ssid duplicate")
-        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET")) {
-            val connAddress = runBlocking { repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress }
+        if(conSSID.startsWith("\"DIRECT") || conSSID.startsWith("\"HIXNET") || conSSID.startsWith("\"kali",true)) {
+            val connAddress = repo.getWifiConfigBySsid(conSSID.trim('"'))?.connAddress
             connAddress?.let{
                 Log.d(TAG,"connected to host")
-                scopeDefault.launch {
-                    //send all tables to the master device
-                    val fileSeeders = repo.getAllFileSeeders()
-                    val fileNames = repo.getAllFileNames()
-                    val names = repo.getAllNames()
-                    val devices = repo.getAllDevices()
+                //send all tables to the master device
+                val fileSeeders = repo.getAllFileSeeders()
+                val fileNames = repo.getAllFileNames()
+                val names = repo.getAllNames()
+                val devices = repo.getAllDevices()
 //                    val bonjour = Command(type = "HELLO",from = device.multicastAddress)
-                    val bonjour = "HELLO@${device.multicastAddress}"
-                    licklider.loadData(message = bonjour,toMeshId = connAddress)
-                    delay(500L)
-                    try{
-                        if(devices.isNotEmpty()) {
-                            val sendDevices = devices.mapNotNull {
-                                it?.let {
-                                    DeviceNode(
-                                        fromMeshID = device.meshID,
-                                        multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {device.meshID},
-                                        connAddress = it.wifiConfig.connAddress,
-                                        meshID = it.device.meshID,
-                                        Hops = it.device.hops,
-                                        macAddress = it.wifiConfig.mac,
-                                        publicKey = it.device.publicKey,
-                                        hasInternetWifi = it.device.hasInternetWifi,
-                                        wifi = it.wifiConfig.ssid,
-                                        passPhrase = it.wifiConfig.passPhrase,
-                                        version = it.device.version,
-                                        status = it.device.status,
-                                        modified = it.device.modified,
-                                        type = "meshHello"
-                                    )
-                                }
+                val bonjour = "HELLO@${device.multicastAddress}"
+                licklider.loadData(message = bonjour,toMeshId = connAddress)
+                delay(500L)
+                try{
+                    if(devices.isNotEmpty()) {
+                        val sendDevices = devices.mapNotNull {
+                            it?.let {
+//                                DeviceNode(
+//                                    fromMeshID = device.meshID,
+//                                    multicastAddress = if (it.device.meshID == device.meshID) device.multicastAddress else {device.meshID},
+//                                    connAddress = it.wifiConfig.connAddress,
+//                                    meshID = it.device.meshID,
+//                                    Hops = it.device.hops,
+//                                    macAddress = it.wifiConfig.mac,
+//                                    publicKey = it.device.publicKey,
+//                                    hasInternetWifi = it.device.hasInternetWifi,
+//                                    wifi = it.wifiConfig.ssid,
+//                                    passPhrase = it.wifiConfig.passPhrase,
+//                                    version = it.device.version,
+//                                    status = it.device.status,
+//                                    modified = it.device.modified,
+//                                    type = "meshHello"
+//                                )
+                                Gson().toJson(it)
                             }
-                            licklider.loadData(message = sendDevices, toMeshId = connAddress)
-
                         }
+
+                        licklider.loadData(message = ListDeviceNode(sendDevices,"meshHelloList"), toMeshId = connAddress)
+
+                    }
 //                        devices.forEach {
 //                            it?.let {
 //                                Log.e(TAG,"sending hello devices to : $connAddress")
@@ -244,60 +250,60 @@ import ug.hix.hixnet2.util.AddConfigs
 //                                licklider.loadData(message = deviceSend, toMeshId = connAddress)
 //                            }
 //                        }
-                    }catch (e: Throwable) {
-                        Log.e(TAG, "Something happened to the hello devices")
-                        e.printStackTrace()
-                    }
-                    Log.e(TAG,"Sending file seeders")
-                    try{
-                        if(fileSeeders.isNotEmpty()) {
-                            val pFileSeeders = fileSeeders.map{ PFileSeeder(it.CID,it.meshID,it.status,device.meshID,type = "fileSeederHello")}
-                            licklider.loadData(pFileSeeders, toMeshId = connAddress)
+                }catch (e: Throwable) {
+                    Log.e(TAG, "Something happened to the hello devices")
+                    e.printStackTrace()
+                }
+                Log.e(TAG,"Sending file seeders")
+                try{
+                    if(fileSeeders.isNotEmpty()) {
+                        val jiller = fileSeeders
+                        val pFileSeeders = fileSeeders.map{ Gson().toJson(it)}
+                        licklider.loadData(ListPFileSeeder(pFileSeeders,"fileSeederHelloList"), toMeshId = connAddress)
 
-                        }
+                    }
 //                        fileSeeders.forEach {
 //                            Log.e(TAG,"sending hello fileSeeders to : $connAddress")
 //                            val pFileSeeder = PFileSeeder(it.CID,it.meshID,it.status,device.meshID,type = "fileSeederHello")
 //                            licklider.loadData(pFileSeeder, toMeshId = connAddress)
 //                        }
-                    }catch (e: Throwable) {
-                        Log.e(TAG, "Something happened to the hello file seeder")
-                        e.printStackTrace()
-                    }
-                    Log.e(TAG,"SENDING FILE NAMES")
-                    try{
-                        if(fileNames.isNotEmpty()) {
-                            val pFileNames = fileNames.map{ PFileName(it.CID,it.name_slub,it.status,device.meshID,it.modified,"fileNameHello",it.file_size)}
-                            licklider.loadData(pFileNames, toMeshId = connAddress)
+                }catch (e: Throwable) {
+                    Log.e(TAG, "Something happened to the hello file seeder")
+                    e.printStackTrace()
+                }
+                Log.e(TAG,"SENDING FILE NAMES")
+                try{
+                    if(fileNames.isNotEmpty()) {
+                        val pFileNames = fileNames.map{ Gson().toJson(it)}
+                        licklider.loadData(ListPFileName(pFileNames,"fileNameHelloList"), toMeshId = connAddress)
 
-                        }
+                    }
 //                        fileNames.forEach {
 //                            Log.e(TAG,"sending hello filenames to : $connAddress")
 //                            val pFileName = PFileName(it.CID,it.name_slub,it.status,device.meshID,it.modified,"fileNameHello",it.file_size)
 //                            licklider.loadData(pFileName, toMeshId = connAddress)
 //                        }
-                    }catch (e: Throwable) {
-                        Log.e(TAG, "Something happened to the hello filename ")
-                        e.printStackTrace()
-                    }
-                    Log.e(TAG,"SENDING NAMES")
-                    try{
-                        if(names.isNotEmpty()) {
-                            val pNames = names.map { PName(it.name, it.name_slub, device.meshID,it.status,type = "nameHello") }
-                            licklider.loadData(pNames, toMeshId = connAddress)
+                }catch (e: Throwable) {
+                    Log.e(TAG, "Something happened to the hello filename ")
+                    e.printStackTrace()
+                }
+                Log.e(TAG,"SENDING NAMES")
+                try{
+                    if(names.isNotEmpty()) {
+                        val pNames = names.map { Gson().toJson(it) }
+                        licklider.loadData(ListPName(pNames,"nameHelloList"), toMeshId = connAddress)
 
-                        }
+                    }
 //                        names.forEach {
 //                            Log.e(TAG,"sending hello names to : $connAddress")
 //                            val pName = PName(it.name, it.name_slub, device.meshID,it.status,type = "nameHello")
 //                            licklider.loadData(pName, toMeshId = connAddress)
 //                        }
-                    }catch (e: Throwable) {
-                        Log.e(TAG, "Something happened to the hello name")
-                        e.printStackTrace()
-                    }
-
+                }catch (e: Throwable) {
+                    Log.e(TAG, "Something happened to the hello name")
+                    e.printStackTrace()
                 }
+
             }
 
         }
@@ -320,7 +326,11 @@ import ug.hix.hixnet2.util.AddConfigs
     }
     private fun unregisterWifiBroadcast() {
         isWifiRegistered = false
-        mContext.unregisterReceiver(meshReceiver)
+        try{
+            mContext.unregisterReceiver(meshReceiver)
+        }catch (e : IllegalArgumentException) {
+            Log.e(TAG,"Mesh Receiver not registered")
+        }
     }
     fun wifiScan() {
         Log.d(TAG,"Performing wifi scan")
@@ -396,7 +406,7 @@ import ug.hix.hixnet2.util.AddConfigs
         }catch (ignore : Throwable) {}
         return false
     }
-    private fun filterResults(){
+    private suspend fun filterResults() {
         filteredResults = wifiScanResults.filter { it.SSID.startsWith("DIRECT") or it.SSID.startsWith("HixNet")}
         if(filteredResults.isNotEmpty()){
             Log.d(TAG,"filtered: $filteredResults")
@@ -407,12 +417,11 @@ import ug.hix.hixnet2.util.AddConfigs
             val (nonP2pHotspots,p2pHotspots) = filteredResults.partition{it.SSID.startsWith("HixNet")}
             if(nonP2pHotspots.isNotEmpty()){
                 Log.d(TAG,"NonP2p: $nonP2pHotspots")
-                scopeDefault.launch{
-                    val macList = repo.getAllMac()
-                    var firstDevice = false
-                    nonP2pHotspots.forEach{scanResult ->
-                        if(!macList.contains(scanResult.BSSID)){
-                            addConfig.insertNonP2pConfig(scanResult)
+                val macList = repo.getAllMac()
+                var firstDevice = false
+                nonP2pHotspots.forEach{scanResult ->
+                    if(!macList.contains(scanResult.BSSID)){
+                        addConfig.insertNonP2pConfig(scanResult)
 //                            if(!firstDevice){
 //                                firstDevice = true
 ////                                mWifiManager.enableNetwork(netId!!,true)
@@ -422,37 +431,21 @@ import ug.hix.hixnet2.util.AddConfigs
 //                            val wifiConfig = netId?.let { _netId -> WifiConfig(_netId,scanResult.SSID,scanResult.BSSID ,password,"")} as WifiConfig
 //
 //                            repo.addWifiConfig(wifiConfig)
-                        }
                     }
                 }
             }
             if(p2pHotspots.isNotEmpty()){
-                scopeDefault.launch {
-                    isScanning.value = Pair(false,0L)
-                }
-                val wifiConfigs = runBlocking { repo.getAllWifiConfig().map{ "${it.ssid}::::${it.mac}" } }
+                isScanning.value = Pair(false,0L)
+                val wifiConfigs = repo.getAllWifiConfig().map{ "${it.ssid}::::${it.mac}" }
                 for(device in p2pHotspots.map{"${it.SSID}::::${it.BSSID}"}){
                     if(device !in wifiConfigs){
-                        scopeDefault.launch {
-                            serviceRegister.value =true
-                        }
+                        serviceRegister.value =true
                         break
                     }
                 }
-//                p2pHotspots.forEach {
-//                    Log.d(TAG,"NON FOUND  device $it  ::: ${!repo.isWifiConfig(it.SSID)}")
-//                    if(!repo.isWifiConfig(it.SSID)){
-//                        Log.d(TAG,"REGISTER SERVICE REACHED")
-//                        registerService()
-//                    }
-//                }
             }
         }else{
-            CoroutineScope(Dispatchers.Default).launch{
-                coroutineScope {
-                    isScanning.value = Pair(true,15000L)
-                }
-            }
+            isScanning.value = Pair(true,15000L * 60)
         }
     }
     private fun createHotspot(ssid : String, password : String) {
@@ -679,17 +672,15 @@ import ug.hix.hixnet2.util.AddConfigs
         })
     }
     fun stop(){
-        CoroutineScope(Dispatchers.Default) .launch {
-            coroutineScope {
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-                    unregisterNetworkCallback()
-                unregisterWifiBroadcast()
-                removeGroup()
-                serviceKiller = true
-                isScanning.value = Pair(false,0L)
-                serviceRegister.value = false
-                if (startJob.isActive) startJob.cancel()
-            }
+        scopeDefault.launch {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                unregisterNetworkCallback()
+            unregisterWifiBroadcast()
+            removeGroup()
+            serviceKiller = true
+            isScanning.value = Pair(false,0L)
+            serviceRegister.value = false
+            if (startJob.isActive) startJob.cancel()
         }
     }
 

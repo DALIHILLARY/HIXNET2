@@ -23,13 +23,14 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
     override suspend fun doWork(): Result {
         return try{
             val repo = Repository.getInstance(applicationContext)
+            val licklider = Licklider(mContext, repo)
             val CID = inputData.getString("fileCID")
             val toMeshId = inputData.getString("fromMeshId")
             val expectedOffsets = inputData.getString("offsets")
             val file = CID?.let { repo.getFileByCid(it) }!!
             setForeground(createForegroundInfo())
             if(expectedOffsets == null){
-                Licklider(mContext,repo).loadData(file, toMeshId!!)
+                licklider.loadData(file, toMeshId!!)
             }else{
                 val storage = Storage(mContext)
                 val cacheDir = mContext.externalCacheDir?.absolutePath
@@ -41,7 +42,7 @@ class SendFileWorker(private val mContext: Context, params: WorkerParameters) : 
                             }.toInt()
                     }
                 storage.deleteFile("$cacheDir/Acks/${expectedOffsets}.ch")
-                Licklider(mContext,repo).loadData(file,offsets,toMeshId!!)
+                licklider.loadData(file,offsets,toMeshId!!)
             }
 
 //            Licklider(mContext).loadData(file,"dguufggfufvueffdgerge4834yrtr")

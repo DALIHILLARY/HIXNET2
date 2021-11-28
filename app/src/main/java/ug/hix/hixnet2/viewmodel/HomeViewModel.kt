@@ -12,7 +12,6 @@ import ug.hix.hixnet2.services.MeshDaemon
 class HomeViewModel : ViewModel() {
 
     var isRunning = false
-    var fragmentSet = false
 
     fun isMyServiceRunning(mContext: Context, serviceClass: Class<*>): Boolean {
 //        return if(Build.VERSION.SDK_INT = Build.VERSION_CODES.O){

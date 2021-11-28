@@ -7,12 +7,11 @@ import android.os.Bundle
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.fragment.NavHostFragment
 import com.google.android.material.bottomappbar.BottomAppBar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
@@ -20,9 +19,6 @@ import ug.hix.hixnet2.models.DeviceNode
 import ug.hix.hixnet2.services.MeshDaemon
 
 import kotlinx.coroutines.*
-import ug.hix.hixnet2.fragments.CloudFragment
-import ug.hix.hixnet2.fragments.DeviceFragment
-import ug.hix.hixnet2.fragments.FileFragment
 import ug.hix.hixnet2.viewmodel.HomeViewModel
 
 class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
@@ -46,6 +42,8 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
             val gray_out_home : FrameLayout = findViewById(R.id.gray_out_home)
             val fabStart : FloatingActionButton = findViewById(R.id.fabStart)
             val bottomAppBar : BottomAppBar = findViewById(R.id.bottomAppBar)
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.navHostFragment) as NavHostFragment
+            val navController = navHostFragment.navController
 
             //Check for permissions
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
@@ -53,13 +51,7 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
                     ActivityCompat.requestPermissions(this,PERMISSIONS,PERMISSION_ALL)
                 }
             }
-            val filesFragment = FileFragment.newFileInstance(this)
-            val cloudFragment = CloudFragment.newInstance(this)
-            val deviceFragment = DeviceFragment.newInstance(this)
-            if(!viewModel.fragmentSet){
-                loadFragment(filesFragment) //load filesFragment as initial display
-                viewModel.fragmentSet = true
-            }
+
             if(MeshDaemon.isServiceRunning){
                 gray_out_home.visibility = GONE
                 fabStart.setImageResource(R.drawable.ic_stop)
@@ -90,29 +82,23 @@ class HomeActivity : AppCompatActivity(), CoroutineScope by MainScope(){
             bottomAppBar.setOnMenuItemClickListener {
                 when(it.itemId){
                     R.id.menuFiles -> {
-                        loadFragment(filesFragment)
+                        navController.popBackStack()
+                        navController.navigate(R.id.fileFragment)
                     }
                     R.id.menuCloud -> {
-                        loadFragment(cloudFragment)
+                        navController.popBackStack()
+                        navController.navigate(R.id.cloudFragment2)
                     }
                     R.id.menuDevices -> {
-                        loadFragment(deviceFragment)
+                        navController.popBackStack()
+                        navController.navigate(R.id.deviceFragment)
                     }
                 }
                 true
             }
         }
 
-    private fun loadFragment(fragment: Fragment){
-        supportFragmentManager.beginTransaction().apply {
-            replace(R.id.fl_wrapper,fragment)
-            commit()
-        }
-    }
-
     private fun hasPermission(context: Context, vararg permissions : String): Boolean = permissions.all{
         ActivityCompat.checkSelfPermission(context,it) == PackageManager.PERMISSION_GRANTED
     }
-
-
 }

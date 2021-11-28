@@ -45,14 +45,19 @@ import ug.hix.hixnet2.viewmodel.DeviceViewModel
 import java.lang.Thread.sleep
 
 
-class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by MainScope() {
+class DeviceFragment : Fragment(), CoroutineScope by MainScope() {
 
-    lateinit var deviceViewModel: DeviceViewModel
-    val repo = Repository(mContext)
-    val addConfig = AddConfigs(mContext,repo)
-    val TAG = javaClass.simpleName
+    private lateinit var deviceViewModel: DeviceViewModel
+    private lateinit var mContext : Context
+    private lateinit var repo : Repository
+    private lateinit var addConfig: AddConfigs
+
+    private val TAG = javaClass.simpleName
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mContext = this.requireContext()
+        repo = Repository(mContext)
+        addConfig = AddConfigs(mContext,repo)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
@@ -167,8 +172,5 @@ class DeviceFragment (val mContext: Context): Fragment(), CoroutineScope by Main
                 }
             }
         }
-    }
-    companion object {
-        @JvmStatic fun newInstance(mContext: Context) = DeviceFragment(mContext)
     }
 }
